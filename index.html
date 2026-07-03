@@ -123,7 +123,7 @@ const parseMinSec = t => {
 
 // Compute pts from goal-time/scorer/card detail predictions against admin-entered live goals
 function computeGoalDetailPts(pred = {}, lg = {}) {
-  if (!lg || !lg.goals || !lg.goals.length) return {
+  if (!lg) return {
     total: 0,
     items: []
   };
