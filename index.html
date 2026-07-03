@@ -424,7 +424,7 @@ const CSS = `
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}
   .page-grid{display:grid;grid-template-columns:270px 1fr 260px;gap:20px;max-width:1280px;margin:0 auto;padding:20px 16px;align-items:start;}
   .page-grid>*{min-width:0;}
-  .sidebar-left,.sidebar-right{position:sticky;top:16px;align-self:start;}
+  .sidebar-left,.sidebar-right{position:sticky;top:160px;align-self:start;}
   .qft-header{position:sticky;top:0;z-index:200;background:var(--paper);border-bottom:1px solid var(--line);}
   .tab-btn{padding:10px 14px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;color:var(--ink-soft);border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
   .tab-btn.active{color:var(--ink);font-weight:700;border-bottom-color:var(--burgundy);}
@@ -908,13 +908,14 @@ const LiveMatchBanner = ({
 }) => {
   if (loading) return /*#__PURE__*/React.createElement("div", {
     style: {
-      background: '#c0392b',
+      background: '#1a1a1a',
       color: 'white',
       padding: '7px 16px',
       display: 'flex',
       alignItems: 'center',
       gap: 8,
-      fontSize: 12
+      fontSize: 12,
+      minHeight: 34
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
@@ -926,7 +927,25 @@ const LiveMatchBanner = ({
       fontWeight: 600
     }
   }, "Checking live score\u2026"));
-  if (!liveData) return null;
+  if (!liveData) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#1a1a1a',
+      color: 'rgba(255,255,255,.35)',
+      padding: '7px 16px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      fontSize: 12,
+      minHeight: 34
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9,
+      fontWeight: 700,
+      letterSpacing: 1,
+      color: '#f0932b'
+    }
+  }, "\uD83D\uDCC5 UPCOMING"), /*#__PURE__*/React.createElement("span", null, "FIFA World Cup 2026 \xB7 Quarter-Final \xB7 Thu Jul 9"));
   const {
     home,
     away,
@@ -6413,7 +6432,13 @@ const App = () => {
   }, tabs.map(t => /*#__PURE__*/React.createElement("button", {
     key: t.id,
     className: `tab-btn${view === t.id ? ' active' : ''}`,
-    onClick: () => setView(t.id)
+    onClick: () => {
+      setView(t.id);
+      window.scrollTo({
+        top: 0,
+        behavior: 'instant'
+      });
+    }
   }, t.label)))), /*#__PURE__*/React.createElement("div", {
     className: "page-grid"
   }, /*#__PURE__*/React.createElement("div", {
