@@ -62,7 +62,79 @@ const SCORE_QF_WINNER = 20;
 const SCORE_BONUS_SCORER = 15; // Top scorer name
 const SCORE_BONUS_GOAL_TIME = 15; // First goal time (closest)
 const SCORE_BONUS_GOAL_TEAM = 15; // Which team scores first
+const SCORE_GOAL_TIME_5 = 10; // Predicted goal time within 5 min
+const SCORE_GOAL_TIME_10 = 5; // Predicted goal time within 10 min
+const SCORE_GOAL_SCORER = 8; // Correct goal scorer
+const SCORE_CARDS_RIGHT = 3; // Correct card count (per team per type)
 
+const parseMinSec = t => {
+  if (!t) return null;
+  const [m, s] = (t || '').split(':').map(Number);
+  return isNaN(m) || isNaN(s) ? null : m * 60 + s;
+};
+
+// Compute pts from goal-time/scorer/card detail predictions against admin-entered live goals
+function computeGoalDetailPts(pred = {}, lg = {}) {
+  if (!lg || !lg.goals || !lg.goals.length) return {
+    total: 0,
+    items: []
+  };
+  let pts = 0;
+  const items = [];
+  const used = new Set(); // prevent double-counting same predicted slot
+  (lg.goals || []).forEach((g, gi) => {
+    const actualSecs = parseMinSec(g.time);
+    if (actualSecs == null) return;
+    const predGoals = g.isHome ? pred.hGoals || [] : pred.aGoals || [];
+    let minDiff = Infinity,
+      bestIdx = -1;
+    predGoals.forEach((pg, i) => {
+      if (used.has((g.isHome ? 'h' : 'a') + i)) return;
+      const s = parseMinSec(pg.time);
+      if (s == null) return;
+      const d = Math.abs(s - actualSecs);
+      if (d < minDiff) {
+        minDiff = d;
+        bestIdx = i;
+      }
+    });
+    if (bestIdx >= 0) {
+      used.add((g.isHome ? 'h' : 'a') + bestIdx);
+      const tp = minDiff <= 300 ? SCORE_GOAL_TIME_5 : minDiff <= 600 ? SCORE_GOAL_TIME_10 : 0;
+      if (tp > 0) {
+        pts += tp;
+        items.push({
+          label: `⏱ ${g.isHome ? 'Home' : 'Away'} goal ${gi + 1} time (±${minDiff < 60 ? minDiff + 's' : Math.round(minDiff / 60) + 'm'})`,
+          pts: tp
+        });
+      }
+      const ps = (predGoals[bestIdx]?.scorer || '').toLowerCase().trim();
+      const as_ = (g.scorer || '').toLowerCase().trim();
+      if (ps && as_ && ps === as_) {
+        pts += SCORE_GOAL_SCORER;
+        items.push({
+          label: `⚽ Scorer: ${g.scorer}`,
+          pts: SCORE_GOAL_SCORER
+        });
+      }
+    }
+  });
+  const ac = lg.cards || {};
+  const pc = pred.cards || {};
+  [['hY', 'Home 🟨'], ['hR', 'Home 🟥'], ['aY', 'Away 🟨'], ['aR', 'Away 🟥']].forEach(([k, label]) => {
+    if (ac[k] != null && pc[k] !== '' && pc[k] != null && parseInt(pc[k]) === parseInt(ac[k])) {
+      pts += SCORE_CARDS_RIGHT;
+      items.push({
+        label: `Cards: ${label} correct`,
+        pts: SCORE_CARDS_RIGHT
+      });
+    }
+  });
+  return {
+    total: pts,
+    items
+  };
+}
 function computeScore(pred, actual, home, away) {
   if (!pred || pred.h == null || pred.h === '' || !actual || actual.h == null || actual.h === '') return {
     total: 0,
@@ -707,7 +779,8 @@ const PredictionSpotlight = ({
   predictions,
   result,
   home,
-  away
+  away,
+  liveGoals = {}
 }) => {
   const hasResult = result && result.h != null && result.h !== '';
   const withPicks = participants.filter(n => {
@@ -781,7 +854,13 @@ const PredictionSpotlight = ({
         color: 'var(--ink-soft)',
         fontStyle: 'italic'
       }
-    }, participants.filter(n => !withPicks.includes(n)).length, " still to predict\u2026"));
+    }, participants.filter(n => !withPicks.includes(n)).length, " still to predict\u2026"), /*#__PURE__*/React.createElement(LiveGoalRace, {
+      liveGoals: liveGoals,
+      predictions: predictions,
+      participants: participants,
+      home: home,
+      away: away
+    }));
   }
 
   // Post-result spotlight
@@ -1179,13 +1258,53 @@ const PredictView = ({
   const [pk, setPk] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [hGoals, setHGoals] = useState([]); // [{time:'',scorer:''}]
+  const [aGoals, setAGoals] = useState([]); // [{time:'',scorer:''}]
+  const [cards, setCards] = useState({
+    hY: '',
+    hR: '',
+    aY: '',
+    aR: ''
+  });
   useEffect(() => {
     if (prediction) {
       setH(String(prediction.h ?? ''));
       setA(String(prediction.a ?? ''));
       setPk(prediction.pk || '');
+      setHGoals(prediction.hGoals || []);
+      setAGoals(prediction.aGoals || []);
+      setCards(prediction.cards || {
+        hY: '',
+        hR: '',
+        aY: '',
+        aR: ''
+      });
     }
   }, [prediction]);
+
+  // Sync goal row count when score inputs change
+  useEffect(() => {
+    if (h === '') return;
+    const n = Math.min(parseInt(h) || 0, 9);
+    setHGoals(prev => {
+      if (prev.length === n) return prev;
+      return prev.length < n ? [...prev, ...Array(n - prev.length).fill(null).map(() => ({
+        time: '',
+        scorer: ''
+      }))] : prev.slice(0, n);
+    });
+  }, [h]);
+  useEffect(() => {
+    if (a === '') return;
+    const n = Math.min(parseInt(a) || 0, 9);
+    setAGoals(prev => {
+      if (prev.length === n) return prev;
+      return prev.length < n ? [...prev, ...Array(n - prev.length).fill(null).map(() => ({
+        time: '',
+        scorer: ''
+      }))] : prev.slice(0, n);
+    });
+  }, [a]);
   const isDraw = h !== '' && a !== '' && parseInt(h) === parseInt(a);
   const needPk = isDraw && home && home !== 'TBD' && away && away !== 'TBD';
   const handleSave = async () => {
@@ -1196,7 +1315,10 @@ const PredictView = ({
       a: parseInt(a),
       ...(needPk && pk ? {
         pk
-      } : {})
+      } : {}),
+      hGoals: hGoals.filter(g => g.time || g.scorer),
+      aGoals: aGoals.filter(g => g.time || g.scorer),
+      cards: Object.fromEntries(Object.entries(cards).filter(([, v]) => v !== '' && v != null))
     });
     setSaving(false);
     setSaved(true);
@@ -1278,7 +1400,7 @@ const PredictView = ({
     style: {
       color: 'var(--ink-soft)'
     }
-  }, "QF Winner"), /*#__PURE__*/React.createElement("span", {
+  }, "QF Winner (incl. pens)"), /*#__PURE__*/React.createElement("span", {
     style: {
       fontWeight: 800,
       color: 'var(--amber)',
@@ -1287,10 +1409,105 @@ const PredictView = ({
   }, "+", SCORE_QF_WINNER, " pts")))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 8,
-      fontSize: 11,
+      paddingTop: 8,
+      borderTop: '1px solid var(--line)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: '#2980b9',
+      marginBottom: 6
+    }
+  }, "\u26A1 Goal Details \u2014 optional, extra pts per goal"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '6px 16px',
+      fontSize: 12,
+      color: 'var(--ink)'
+    }
+  }, [[`⏱ Goal time within 5 min`, `+${SCORE_GOAL_TIME_5} pts`], [`⏱ Goal time within 10 min`, `+${SCORE_GOAL_TIME_10} pts`], [`⚽ Correct scorer name`, `+${SCORE_GOAL_SCORER} pts`]].map(([l, p]) => /*#__PURE__*/React.createElement("div", {
+    key: l,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement("span", null, l), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 800,
+      color: '#2980b9',
+      fontFamily: 'JetBrains Mono,monospace'
+    }
+  }, p))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8,
+      paddingTop: 8,
+      borderTop: '1px solid var(--line)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: '#8e44ad',
+      marginBottom: 6
+    }
+  }, "\uD83D\uDFE8\uD83D\uDFE5 Card Predictions \u2014 per team per card type"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '6px 16px',
+      fontSize: 12,
+      color: 'var(--ink)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "Correct yellow or red count"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 800,
+      color: '#8e44ad',
+      fontFamily: 'JetBrains Mono,monospace'
+    }
+  }, "+", SCORE_CARDS_RIGHT, " pts")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8,
+      paddingTop: 8,
+      borderTop: '1px solid var(--line)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: 'var(--ink-soft)',
+      marginBottom: 6
+    }
+  }, "\u2B50 Bonus Tab \u2014 separate picks, ", SCORE_BONUS_SCORER, " pts each"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '6px 16px',
+      fontSize: 12,
       color: 'var(--ink-soft)'
     }
-  }, "Draw predictions require a ", /*#__PURE__*/React.createElement("strong", null, "penalty winner pick"), ". Bonus picks (Top Scorer, First Goal Time, First Scoring Team) are worth ", /*#__PURE__*/React.createElement("strong", null, SCORE_BONUS_SCORER, " pts each"), " \u2014 enter them in the \u2B50 Bonus tab.")), /*#__PURE__*/React.createElement("div", {
+  }, [`⚽ Top Scorer`, `⏱ First Goal Time (±30s)`, `🏳️ First Scoring Team`].map(l => /*#__PURE__*/React.createElement("div", {
+    key: l,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement("span", null, l), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 800,
+      color: 'var(--forest)',
+      fontFamily: 'JetBrains Mono,monospace'
+    }
+  }, "+", SCORE_BONUS_SCORER, " pts")))))), /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       marginBottom: 16,
@@ -1513,7 +1730,220 @@ const PredictView = ({
   }, /*#__PURE__*/React.createElement(Flag, {
     team: t,
     size: 14
-  }), t)))), !locked && /*#__PURE__*/React.createElement("button", {
+  }), t)))), !locked && (parseInt(h) || 0) + (parseInt(a) || 0) > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16,
+      padding: '12px 14px',
+      background: 'rgba(41,128,185,.04)',
+      border: '1px solid rgba(41,128,185,.18)',
+      borderRadius: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      marginBottom: 10,
+      color: '#2980b9',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6
+    }
+  }, "\u26BD Goal Details", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      fontWeight: 500,
+      color: 'var(--ink-soft)'
+    }
+  }, "(optional \u2014 extra pts for goal times & scorers)")), hGoals.map((g, i) => /*#__PURE__*/React.createElement("div", {
+    key: 'h' + i,
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '100px 1fr 1fr',
+      gap: 6,
+      marginBottom: 6,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4,
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--forest)'
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: home,
+    size: 13
+  }), home || 'Home', " ", i + 1), /*#__PURE__*/React.createElement("input", {
+    value: g.time,
+    onChange: e => setHGoals(p => p.map((x, j) => j === i ? {
+      ...x,
+      time: e.target.value
+    } : x)),
+    placeholder: "MM:SS",
+    style: {
+      padding: '6px 9px',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'JetBrains Mono,monospace',
+      fontSize: 12,
+      width: '100%',
+      boxSizing: 'border-box'
+    }
+  }), /*#__PURE__*/React.createElement("input", {
+    value: g.scorer,
+    onChange: e => setHGoals(p => p.map((x, j) => j === i ? {
+      ...x,
+      scorer: e.target.value
+    } : x)),
+    placeholder: "Scorer",
+    style: {
+      padding: '6px 9px',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 12,
+      width: '100%',
+      boxSizing: 'border-box'
+    }
+  }))), aGoals.map((g, i) => /*#__PURE__*/React.createElement("div", {
+    key: 'a' + i,
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '100px 1fr 1fr',
+      gap: 6,
+      marginBottom: 6,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4,
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--burgundy)'
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: away,
+    size: 13
+  }), away || 'Away', " ", i + 1), /*#__PURE__*/React.createElement("input", {
+    value: g.time,
+    onChange: e => setAGoals(p => p.map((x, j) => j === i ? {
+      ...x,
+      time: e.target.value
+    } : x)),
+    placeholder: "MM:SS",
+    style: {
+      padding: '6px 9px',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'JetBrains Mono,monospace',
+      fontSize: 12,
+      width: '100%',
+      boxSizing: 'border-box'
+    }
+  }), /*#__PURE__*/React.createElement("input", {
+    value: g.scorer,
+    onChange: e => setAGoals(p => p.map((x, j) => j === i ? {
+      ...x,
+      scorer: e.target.value
+    } : x)),
+    placeholder: "Scorer",
+    style: {
+      padding: '6px 9px',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 12,
+      width: '100%',
+      boxSizing: 'border-box'
+    }
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      paddingTop: 10,
+      borderTop: '1px solid rgba(41,128,185,.15)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      marginBottom: 8,
+      color: 'var(--ink)'
+    }
+  }, "Card predictions \uD83D\uDFE8\uD83D\uDFE5"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 10
+    }
+  }, [[home, 'hY', 'hR'], [away, 'aY', 'aR']].map(([team, yk, rk]) => /*#__PURE__*/React.createElement("div", {
+    key: team
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 600,
+      marginBottom: 5,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: team,
+    size: 11
+  }), team || '?'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13
+    }
+  }, "\uD83D\uDFE8"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    max: "15",
+    value: cards[yk],
+    onChange: e => setCards(p => ({
+      ...p,
+      [yk]: e.target.value
+    })),
+    style: {
+      width: 42,
+      padding: '5px',
+      textAlign: 'center',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 13
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13
+    }
+  }, "\uD83D\uDFE5"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    max: "5",
+    value: cards[rk],
+    onChange: e => setCards(p => ({
+      ...p,
+      [rk]: e.target.value
+    })),
+    style: {
+      width: 42,
+      padding: '5px',
+      textAlign: 'center',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 13
+    }
+  }))))))), !locked && /*#__PURE__*/React.createElement("button", {
     className: "btn btn-green",
     onClick: handleSave,
     disabled: saving || h === '' || a === '' || needPk && !pk,
@@ -1573,23 +2003,27 @@ const LeaderboardView = ({
   bonusAnswers = {},
   currentUser,
   home,
-  away
+  away,
+  liveGoals = {}
 }) => {
   const hasResult = result && result.h != null && result.h !== '';
   const scores = useMemo(() => {
     return participants.map(name => {
       const s = computeScore(predictions[name] || {}, result, home, away);
       const bonusPts = computeBonusPts(bonusPicks[name] || {}, bonusAnswers);
+      const detailPts = computeGoalDetailPts(predictions[name] || {}, liveGoals);
       return {
         name,
         matchPts: s.total,
         bonusPts,
-        total: s.total + bonusPts,
+        detailPts: detailPts.total,
+        detailItems: detailPts.items,
+        total: s.total + bonusPts + detailPts.total,
         ...s,
         hasPred: !!(predictions[name] && predictions[name].h != null && predictions[name].h !== '')
       };
     }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
-  }, [participants, predictions, result, bonusPicks, bonusAnswers, home, away]);
+  }, [participants, predictions, result, bonusPicks, bonusAnswers, home, away, liveGoals]);
   const maxScore = Math.max(...scores.map(s => s.total), 1);
   const withPreds = scores.filter(s => s.hasPred).length;
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
@@ -2691,7 +3125,9 @@ const AdminView = ({
   bypassAuth = false,
   manualLiveData = {},
   onSaveManualLive,
-  liveData = null
+  liveData = null,
+  liveGoals = {},
+  onSaveLiveGoals
 }) => {
   const [adminPw, setAdminPw] = useState('');
   const [authed, setAuthed] = useState(bypassAuth);
@@ -2715,6 +3151,15 @@ const AdminView = ({
   const [lMin, setLMin] = useState(manualLiveData?.minute || '');
   const [lSt, setLSt] = useState(manualLiveData?.status || '1H');
   const [lActive, setLActive] = useState(!!manualLiveData?.status);
+  // Goals admin state
+  const [newGoalTime, setNewGoalTime] = useState('');
+  const [newGoalScorer, setNewGoalScorer] = useState('');
+  const [newGoalTeam, setNewGoalTeam] = useState('');
+  const [savingGoal, setSavingGoal] = useState(false);
+  const [cHY, setCHY] = useState(String(liveGoals?.cards?.hY ?? ''));
+  const [cHR, setCHR] = useState(String(liveGoals?.cards?.hR ?? ''));
+  const [cAY, setCAY] = useState(String(liveGoals?.cards?.aY ?? ''));
+  const [cAR, setCAR] = useState(String(liveGoals?.cards?.aR ?? ''));
   const [savingLive, setSavingLive] = useState(false);
   useEffect(() => {
     if (bypassAuth) setAuthed(true);
@@ -3639,7 +4084,285 @@ const AdminView = ({
   }))), section === 'online' && /*#__PURE__*/React.createElement(OnlinePanel, {
     onlineUsers: onlineUsers,
     currentUser: adminUser
-  }));
+  }), section === 'goals' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 14,
+      marginBottom: 12
+    }
+  }, "\u26BD Record Live Goal"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 8,
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--ink-soft)',
+      marginBottom: 4
+    }
+  }, "Team"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6
+    }
+  }, [{
+    t: home,
+    isHome: true
+  }, {
+    t: away,
+    isHome: false
+  }].filter(x => x.t && x.t !== 'TBD').map(({
+    t,
+    isHome
+  }) => /*#__PURE__*/React.createElement("button", {
+    key: t,
+    onClick: () => setNewGoalTeam(t),
+    style: {
+      flex: 1,
+      padding: '7px 4px',
+      borderRadius: 4,
+      border: `2px solid ${newGoalTeam === t ? 'var(--forest)' : 'var(--line)'}`,
+      background: newGoalTeam === t ? 'rgba(27,67,50,.07)' : 'white',
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      fontSize: 11,
+      fontWeight: 700,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4,
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: t,
+    size: 12
+  }), t)))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--ink-soft)',
+      marginBottom: 4
+    }
+  }, "Time (MM:SS)"), /*#__PURE__*/React.createElement("input", {
+    value: newGoalTime,
+    onChange: e => setNewGoalTime(e.target.value),
+    placeholder: "e.g. 23:10",
+    style: {
+      width: '100%',
+      padding: '9px 12px',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'JetBrains Mono,monospace',
+      fontSize: 13,
+      boxSizing: 'border-box'
+    }
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--ink-soft)',
+      marginBottom: 4
+    }
+  }, "Scorer (optional)"), /*#__PURE__*/React.createElement("input", {
+    value: newGoalScorer,
+    onChange: e => setNewGoalScorer(e.target.value),
+    placeholder: "Player name",
+    style: {
+      width: '100%',
+      padding: '9px 12px',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 13,
+      boxSizing: 'border-box'
+    }
+  })), /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-green",
+    onClick: async () => {
+      if (!newGoalTime || !newGoalTeam) return;
+      setSavingGoal(true);
+      const isHome = newGoalTeam === home;
+      const goal = {
+        time: newGoalTime.trim(),
+        scorer: newGoalScorer.trim(),
+        team: newGoalTeam,
+        isHome,
+        num: (liveGoals?.goals || []).length + 1,
+        ts: Date.now()
+      };
+      await onSaveLiveGoals({
+        ...liveGoals,
+        goals: [...(liveGoals?.goals || []), goal]
+      });
+      setNewGoalTime('');
+      setNewGoalScorer('');
+      setSavingGoal(false);
+    },
+    disabled: savingGoal || !newGoalTime || !newGoalTeam,
+    style: {
+      width: '100%',
+      justifyContent: 'center'
+    }
+  }, savingGoal ? '⏳ Adding…' : '⚽ Add Goal')), (liveGoals?.goals || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 14,
+      marginBottom: 10
+    }
+  }, "Goals (", (liveGoals.goals || []).length, ")"), (liveGoals.goals || []).map((g, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '7px 0',
+      borderBottom: '1px solid var(--line-soft)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 15
+    }
+  }, "\u26BD"), /*#__PURE__*/React.createElement(Flag, {
+    team: g.team,
+    size: 13
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 600,
+      fontSize: 12,
+      flex: 1
+    }
+  }, g.scorer || '—'), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'monospace',
+      fontSize: 11,
+      color: 'var(--ink-soft)'
+    }
+  }, g.time), /*#__PURE__*/React.createElement("button", {
+    onClick: async () => {
+      await onSaveLiveGoals({
+        ...liveGoals,
+        goals: (liveGoals.goals || []).filter((_, gi) => gi !== i)
+      });
+    },
+    style: {
+      background: 'var(--burgundy)',
+      color: 'white',
+      border: 'none',
+      borderRadius: 3,
+      padding: '3px 7px',
+      fontSize: 10,
+      fontWeight: 700,
+      cursor: 'pointer'
+    }
+  }, "\u2715")))), /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 14,
+      marginBottom: 12
+    }
+  }, "\uD83D\uDFE8\uD83D\uDFE5 Actual Cards"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 12,
+      marginBottom: 12
+    }
+  }, [[home, 'h'], [away, 'a']].filter(([t]) => t && t !== 'TBD').map(([team, pfx]) => /*#__PURE__*/React.createElement("div", {
+    key: pfx
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      marginBottom: 6,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: team,
+    size: 12
+  }), team), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13
+    }
+  }, "\uD83D\uDFE8"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    max: "15",
+    value: pfx === 'h' ? cHY : cAY,
+    onChange: e => pfx === 'h' ? setCHY(e.target.value) : setCAY(e.target.value),
+    style: {
+      width: 44,
+      padding: '6px',
+      textAlign: 'center',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 13
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13
+    }
+  }, "\uD83D\uDFE5"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    max: "5",
+    value: pfx === 'h' ? cHR : cAR,
+    onChange: e => pfx === 'h' ? setCHR(e.target.value) : setCAR(e.target.value),
+    style: {
+      width: 44,
+      padding: '6px',
+      textAlign: 'center',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 13
+    }
+  }))))), /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-amber",
+    onClick: async () => {
+      await onSaveLiveGoals({
+        ...liveGoals,
+        cards: {
+          hY: parseInt(cHY) || 0,
+          hR: parseInt(cHR) || 0,
+          aY: parseInt(cAY) || 0,
+          aR: parseInt(cAR) || 0
+        }
+      });
+      alert('Cards saved.');
+    },
+    style: {
+      width: '100%',
+      justifyContent: 'center'
+    }
+  }, "\uD83D\uDCBE Save Cards"))));
 };
 
 // ── LOGIN SCREEN ──────────────────────────────────────────────────
@@ -3929,6 +4652,12 @@ const App = () => {
   const [ready, setReady] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState({}); // name→{ts,mob} for admin online panel
   const [manualLive, setManualLive] = useState({}); // admin live score override
+  const [liveGoals, setLiveGoals] = useState({
+    goals: [],
+    cards: {}
+  });
+  const [goalToast, setGoalToast] = useState(null);
+  const prevGoalCountRef = useRef(0);
 
   // Load all data
   useEffect(() => {
@@ -4011,6 +4740,45 @@ const App = () => {
     });
     sub('manual-live', d => {
       if (d && typeof d === 'object') setManualLive(d);
+    });
+    sub('live-goals', d => {
+      if (d && typeof d === 'object') {
+        setLiveGoals(d);
+        const newCount = (d.goals || []).length;
+        if (newCount > prevGoalCountRef.current && prevGoalCountRef.current >= 0) {
+          const g = (d.goals || [])[newCount - 1];
+          if (g) {
+            // Find closest predictor
+            const actualSecs = parseMinSec(g.time);
+            if (actualSecs != null) {
+              const ranked = Object.entries(predictions).map(([name, pred]) => {
+                const pg = g.isHome ? pred.hGoals || [] : pred.aGoals || [];
+                let minDiff = Infinity;
+                pg.forEach(x => {
+                  const s = parseMinSec(x.time);
+                  if (s != null) minDiff = Math.min(minDiff, Math.abs(s - actualSecs));
+                });
+                return {
+                  name,
+                  diff: minDiff === Infinity ? null : minDiff
+                };
+              }).filter(x => x.diff !== null).sort((a, b) => a.diff - b.diff);
+              const closest = ranked[0] ? {
+                ...ranked[0],
+                pts: ranked[0].diff <= 300 ? SCORE_GOAL_TIME_5 : ranked[0].diff <= 600 ? SCORE_GOAL_TIME_10 : 0
+              } : null;
+              setGoalToast({
+                scorer: g.scorer,
+                team: g.team,
+                time: g.time,
+                closest
+              });
+              setTimeout(() => setGoalToast(null), 8000);
+            }
+          }
+        }
+        prevGoalCountRef.current = newCount;
+      }
     });
     return () => subs.forEach(u => u());
   }, []);
@@ -4211,6 +4979,10 @@ const App = () => {
     setManualLive(data);
     storage.set('manual-live', data);
   };
+  const saveLiveGoals = async data => {
+    setLiveGoals(data);
+    storage.set('live-goals', data);
+  };
   const handleResetPin = async (name, newPin) => {
     const hashed = await hashPin(newPin, name);
     const np = {
@@ -4290,7 +5062,13 @@ const App = () => {
   }] : [])];
   return /*#__PURE__*/React.createElement("div", {
     className: "app"
-  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement(GoalToast, {
+    toast: goalToast,
+    onDismiss: () => setGoalToast(null)
+  }), /*#__PURE__*/React.createElement(GoalToast, {
+    toast: goalToast,
+    onDismiss: () => setGoalToast(null)
+  }), /*#__PURE__*/React.createElement("div", {
     className: "qft-header"
   }, /*#__PURE__*/React.createElement(LiveMatchBanner, {
     liveData: liveData,
@@ -4440,7 +5218,8 @@ const App = () => {
     predictions: predictions,
     result: result,
     home: home,
-    away: away
+    away: away,
+    liveGoals: liveGoals
   })), /*#__PURE__*/React.createElement("main", null, view === 'predict' && /*#__PURE__*/React.createElement(PredictView, {
     currentUser: currentUser,
     prediction: myPred,
@@ -4457,7 +5236,8 @@ const App = () => {
     bonusAnswers: bonusAnswers,
     currentUser: currentUser,
     home: home,
-    away: away
+    away: away,
+    liveGoals: liveGoals
   }), view === 'fanpicks' && /*#__PURE__*/React.createElement(FanPicksView, {
     participants: participants,
     predictions: predictions,
@@ -4493,7 +5273,9 @@ const App = () => {
     bypassAuth: isAdmin,
     manualLiveData: manualLive,
     onSaveManualLive: saveManualLive,
-    liveData: liveData
+    liveData: liveData,
+    liveGoals: liveGoals,
+    onSaveLiveGoals: saveLiveGoals
   })), /*#__PURE__*/React.createElement("div", {
     className: "sidebar-right"
   }, /*#__PURE__*/React.createElement(RightSidebar, {
