@@ -1397,7 +1397,8 @@ const PredictView = ({
   locked,
   bonusPick = {},
   onSaveBonusPick,
-  bonusAnswers = {}
+  bonusAnswers = {},
+  liveGoals = {}
 }) => {
   const [h, setH] = useState('');
   const [a, setA] = useState('');
@@ -1491,12 +1492,22 @@ const PredictView = ({
   const hasResult = result && result.h != null && result.h !== '';
   const myScore = useMemo(() => {
     if (!hasResult || h === '' || a === '') return null;
-    return computeScore({
+    const base = computeScore({
       h: parseInt(h),
       a: parseInt(a),
       pk
     }, result, home, away).total;
-  }, [h, a, pk, result, home, away, hasResult]);
+    const pred = {
+      h: parseInt(h),
+      a: parseInt(a),
+      pk,
+      hGoals,
+      aGoals,
+      cards
+    };
+    const detail = computeGoalDetailPts(pred, liveGoals).total;
+    return base + detail;
+  }, [h, a, pk, hGoals, aGoals, cards, result, home, away, hasResult, liveGoals]);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
@@ -6036,7 +6047,8 @@ const App = () => {
     locked: predLocked,
     bonusPick: bonusPicks[currentUser] || {},
     onSaveBonusPick: saveBonusPick,
-    bonusAnswers: bonusAnswers
+    bonusAnswers: bonusAnswers,
+    liveGoals: liveGoals
   }), view === 'leaderboard' && /*#__PURE__*/React.createElement(LeaderboardView, {
     participants: participants,
     predictions: predictions,
