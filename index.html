@@ -572,6 +572,143 @@ const PlayerSearchInput = ({
     }
   }, "No squad loaded for ", team || 'this team', " \u2014 type freely")));
 };
+
+// ── PLAYER SEARCH (BOTH TEAMS COMBINED) ───────────────────────────
+const BothTeamsPlayerSearch = ({
+  value,
+  onChange,
+  home,
+  away,
+  disabled,
+  placeholder = 'e.g. Kylian Mbappé',
+  inputStyle = {}
+}) => {
+  const [q, setQ] = useState(value || '');
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);
+  const ref = useRef();
+  useEffect(() => {
+    setQ(value || '');
+  }, [value]);
+  useEffect(() => {
+    const fn = e => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, []);
+  const allPlayers = useMemo(() => {
+    const h = SQUAD[home] || [];
+    const a = SQUAD[away] || [];
+    const out = [];
+    const seen = new Set();
+    const max = Math.max(h.length, a.length);
+    for (let i = 0; i < max; i++) {
+      if (h[i] && !seen.has(h[i])) {
+        out.push({
+          name: h[i],
+          team: home
+        });
+        seen.add(h[i]);
+      }
+      if (a[i] && !seen.has(a[i])) {
+        out.push({
+          name: a[i],
+          team: away
+        });
+        seen.add(a[i]);
+      }
+    }
+    return out;
+  }, [home, away]);
+  const filtered = q.length < 1 ? allPlayers.slice(0, 14) : allPlayers.filter(p => p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 12);
+  const handleChange = e => {
+    setQ(e.target.value);
+    onChange(e.target.value);
+    setOpen(true);
+    setHi(0);
+  };
+  const select = p => {
+    setQ(p.name);
+    onChange(p.name);
+    setOpen(false);
+  };
+  const handleKey = e => {
+    if (!open || !filtered.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHi(h => Math.min(h + 1, filtered.length - 1));
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHi(h => Math.max(h - 1, 0));
+    }
+    if (e.key === 'Enter' && filtered[hi]) {
+      e.preventDefault();
+      select(filtered[hi]);
+    }
+    if (e.key === 'Escape') setOpen(false);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    ref: ref,
+    style: {
+      position: 'relative'
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: q,
+    onChange: handleChange,
+    onFocus: () => setOpen(true),
+    onKeyDown: handleKey,
+    placeholder: placeholder,
+    disabled: disabled,
+    style: {
+      ...inputStyle,
+      border: `1px solid ${q && !disabled ? 'var(--forest)' : 'var(--line)'}`
+    }
+  }), open && !disabled && filtered.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "scrollbar",
+    style: {
+      position: 'absolute',
+      zIndex: 300,
+      top: '100%',
+      left: 0,
+      right: 0,
+      background: 'white',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      boxShadow: '0 4px 16px rgba(0,0,0,.14)',
+      maxHeight: 220,
+      overflowY: 'auto',
+      marginTop: 2
+    }
+  }, filtered.map((p, i) => /*#__PURE__*/React.createElement("div", {
+    key: p.name,
+    onMouseDown: () => select(p),
+    onMouseEnter: () => setHi(i),
+    style: {
+      padding: '7px 10px',
+      cursor: 'pointer',
+      background: i === hi ? 'var(--cream2)' : 'white',
+      fontSize: 13,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: p.team,
+    size: 13
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontWeight: i === hi ? 700 : 400
+    }
+  }, p.name), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-soft)'
+    }
+  }, p.team)))));
+};
 const TeamSearchInput = ({
   value,
   onChange,
@@ -2430,15 +2567,16 @@ const PredictView = ({
         color: 'var(--forest)',
         fontWeight: 700
       }
-    }, "+", SCORE_BONUS_SCORER))), /*#__PURE__*/React.createElement("input", {
+    }, "+", SCORE_BONUS_SCORER))), /*#__PURE__*/React.createElement(BothTeamsPlayerSearch, {
       value: scorer,
-      onChange: e => setScorer(e.target.value),
+      onChange: setScorer,
+      home: home,
+      away: away,
       disabled: locked || !!bonusAnswers.scorer,
       placeholder: "e.g. Kylian Mbapp\xE9",
-      style: {
+      inputStyle: {
         width: '100%',
         padding: '9px 12px',
-        border: `1px solid ${scorer && !bonusAnswers.scorer ? 'var(--forest)' : 'var(--line)'}`,
         borderRadius: 4,
         fontFamily: 'inherit',
         fontSize: 13,
@@ -3522,12 +3660,22 @@ const BonusPickView = ({
     answer: bonusAnswers.scorer,
     correct: scorerCorrect,
     userVal: scorer
-  }, /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement(BothTeamsPlayerSearch, {
     value: scorer,
-    onChange: e => setScorer(e.target.value),
+    onChange: setScorer,
+    home: home,
+    away: away,
     disabled: locked || !!bonusAnswers.scorer,
     placeholder: "e.g. Kylian Mbapp\xE9",
-    style: inputStyle
+    inputStyle: {
+      width: '100%',
+      padding: '11px 14px',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 14,
+      boxSizing: 'border-box',
+      background: locked || bonusAnswers.scorer ? 'var(--cream2)' : 'white'
+    }
   })), /*#__PURE__*/React.createElement(BonusRow, {
     emoji: "\u23F1",
     label: "First Goal Time",
