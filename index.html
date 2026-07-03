@@ -427,8 +427,30 @@ const CSS = `
   .qft-header{position:sticky;top:0;z-index:200;background:var(--paper);border-bottom:1px solid var(--line);}
   .tab-btn{padding:10px 14px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;color:var(--ink-soft);border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
   .tab-btn.active{color:var(--ink);font-weight:700;border-bottom-color:var(--burgundy);}
+  .hdr-main{padding:12px 24px;display:flex;align-items:center;justify-content:space-between;}
+  .hdr-title{font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.15;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .hdr-user{display:flex;align-items:center;gap:10px;font-size:13px;flex-shrink:0;}
+  .goal-grid{display:grid;grid-template-columns:90px 1fr 1fr auto;gap:6px;margin-bottom:6px;align-items:center;}
   @media(max-width:1100px){.page-grid{grid-template-columns:240px 1fr;}}
-  @media(max-width:800px){.page-grid{grid-template-columns:1fr;}.sidebar-left,.sidebar-right{position:static;}.page-grid>main{min-height:unset;}}
+  @media(max-width:800px){
+    .page-grid{grid-template-columns:1fr;padding:12px 10px;gap:12px;}
+    .sidebar-left,.sidebar-right{position:static;}
+    .page-grid>main{min-height:unset;}
+    .hdr-main{padding:8px 12px;}
+    .hdr-title{font-size:15px;gap:5px;}
+    .hdr-user .hdr-name{display:none;}
+    .tab-btn{padding:8px 10px;font-size:12px;}
+    .score-input{width:48px;font-size:18px;padding:6px;}
+    .goal-grid{grid-template-columns:80px 1fr 1fr auto;gap:4px;}
+    .card{padding:12px;}
+    .btn{padding:9px 14px;font-size:13px;}
+  }
+  @media(max-width:480px){
+    .hdr-title{font-size:13px;}
+    .goal-grid{grid-template-columns:1fr 1fr;gap:4px;}
+    .goal-grid .goal-label{grid-column:1/-1;}
+    .goal-grid .goal-pts{display:none;}
+  }
   .sidebar-right{display:block;}@media(max-width:1100px){.sidebar-right{display:none;}}
 `;
 
@@ -2396,14 +2418,9 @@ const PredictView = ({
       const scorerPt = detailPts.items.find(it => it.label === `⚽ Scorer: ${liveG?.scorer || '__'}`);
       return /*#__PURE__*/React.createElement("div", {
         key: 'h' + i,
-        style: {
-          display: 'grid',
-          gridTemplateColumns: '100px 1fr 1fr auto',
-          gap: 6,
-          marginBottom: 6,
-          alignItems: 'center'
-        }
+        className: "goal-grid"
       }, /*#__PURE__*/React.createElement("div", {
+        className: "goal-label",
         style: {
           display: 'flex',
           alignItems: 'center',
@@ -2471,14 +2488,9 @@ const PredictView = ({
       const scorerPt = detailPts.items.find(it => it.label === `⚽ Scorer: ${liveG?.scorer || '__'}`);
       return /*#__PURE__*/React.createElement("div", {
         key: 'a' + i,
-        style: {
-          display: 'grid',
-          gridTemplateColumns: '100px 1fr 1fr auto',
-          gap: 6,
-          marginBottom: 6,
-          alignItems: 'center'
-        }
+        className: "goal-grid"
       }, /*#__PURE__*/React.createElement("div", {
+        className: "goal-label",
         style: {
           display: 'flex',
           alignItems: 'center',
@@ -6504,66 +6516,55 @@ const App = () => {
       fontSize: 11
     }
   }, "Locks 10 min before kickoff")), /*#__PURE__*/React.createElement("div", {
+    className: "hdr-main",
     style: {
       maxWidth: 1280,
-      margin: '0 auto',
-      padding: '12px 24px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between'
+      margin: '0 auto'
     }
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
     className: "micro-caps",
     style: {
       marginBottom: 2
     }
   }, "FIFA World Cup 2026 \xB7 Quarter-Final"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 19,
-      fontWeight: 700,
-      letterSpacing: '-.01em',
-      lineHeight: 1.15,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 8,
-      flexWrap: 'wrap'
-    }
+    className: "hdr-title"
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--burgundy)'
     }
   }, "Quarter Final Thursday"), /*#__PURE__*/React.createElement("span", {
     style: {
-      color: 'var(--line)',
-      fontSize: 15
+      color: 'var(--line)'
     }
   }, "\xB7"), home !== 'TBD' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Flag, {
     team: home,
-    size: 16
+    size: 15
   }), /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--ink)',
-      fontSize: 15,
       fontWeight: 700
     }
   }, home)), home !== 'TBD' && away !== 'TBD' && /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--ink-soft)',
-      fontSize: 13
+      fontSize: 12
     }
   }, "vs"), away !== 'TBD' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--ink)',
-      fontSize: 15,
       fontWeight: 700
     }
   }, away), /*#__PURE__*/React.createElement(Flag, {
     team: away,
-    size: 16
+    size: 15
   })), home === 'TBD' && away === 'TBD' && /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--ink-soft)',
-      fontSize: 13,
       fontStyle: 'italic'
     }
   }, "Teams TBD")), /*#__PURE__*/React.createElement("div", {
@@ -6572,18 +6573,13 @@ const App = () => {
       color: 'var(--ink-soft)',
       marginTop: 2
     }
-  }, "Thu, Jul 9 \xB7 ", participants.length, " players competing")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      fontSize: 13,
-      flexShrink: 0
-    }
+  }, "Thu Jul 9 \xB7 ", participants.length, " players")), /*#__PURE__*/React.createElement("div", {
+    className: "hdr-user"
   }, /*#__PURE__*/React.createElement(Avatar, {
     name: currentUser,
     size: 28
-  }), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "hdr-name",
     style: {
       fontWeight: 600,
       color: 'var(--ink)'
@@ -6605,8 +6601,7 @@ const App = () => {
       fontFamily: 'inherit',
       borderRadius: 4,
       border: '1px solid var(--line)'
-    },
-    title: "Sign out"
+    }
   }, "Sign out"))), /*#__PURE__*/React.createElement("nav", {
     className: "scrollbar",
     style: {
