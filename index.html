@@ -207,23 +207,69 @@ const lsSet = (k, v) => {
 };
 const fbTO = (p, ms = 8000) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
 const storage = {
+  // Write whole-doc blob (participants, pins, result, teams, etc.)
   async set(key, value) {
     lsSet(key, value);
-    if (FB_ON) fbTO(db.collection(NS).doc(key).set({
+    if (!FB_ON) return;
+    return fbTO(db.collection(NS).doc(key).set({
       value: JSON.stringify(value)
-    })).catch(() => {});
+    })).catch(e => console.warn('[qft] write failed:', key, e));
   },
+  // Read whole-doc blob
   async get(key) {
     const c = lsGet(key);
     if (!FB_ON) return c;
     try {
       const s = await fbTO(db.collection(NS).doc(key).get());
       if (s.exists) {
-        const v = JSON.parse(s.data().value);
+        const v = JSON.parse(s.data().value || 'null');
         lsSet(key, v);
         return v;
       }
-    } catch {}
+    } catch (e) {
+      console.warn('[qft] read failed:', key, e);
+    }
+    return c;
+  },
+  // Per-user merge write — prevents race conditions when multiple users save simultaneously
+  async setUserField(key, userName, value) {
+    const cache = lsGet(key) || {};
+    lsSet(key, {
+      ...cache,
+      [userName]: value
+    });
+    if (!FB_ON) return;
+    return fbTO(db.collection(NS).doc(key).set({
+      [userName]: JSON.stringify(value)
+    }, {
+      merge: true
+    })).catch(e => console.warn('[qft] user-field write failed:', key, userName, e));
+  },
+  // Read per-user field doc → object map {userName: value} — supports both legacy blob and new field format
+  async getUserMap(key) {
+    const c = lsGet(key) || {};
+    if (!FB_ON) return c;
+    try {
+      const s = await fbTO(db.collection(NS).doc(key).get());
+      if (s.exists) {
+        const data = s.data() || {};
+        const map = {};
+        if (data.value) {
+          try {
+            Object.assign(map, JSON.parse(data.value));
+          } catch {}
+        } // legacy blob support
+        Object.entries(data).filter(([k]) => k !== 'value').forEach(([k, v]) => {
+          try {
+            map[k] = JSON.parse(v);
+          } catch {}
+        });
+        lsSet(key, map);
+        return map;
+      }
+    } catch (e) {
+      console.warn('[qft] user-map read failed:', key, e);
+    }
     return c;
   }
 };
@@ -3885,7 +3931,7 @@ const App = () => {
 
   // Load all data
   useEffect(() => {
-    Promise.all([storage.get('participants'), storage.get('pins'), storage.get('predictions'), storage.get('result'), storage.get('bonus-picks'), storage.get('bonus-answers'), storage.get('teams'), storage.get('manual-live')]).then(([parts, pins, preds, res, bPicks, bAns, teams, ml]) => {
+    Promise.all([storage.get('participants'), storage.get('pins'), storage.getUserMap('predictions'), storage.get('result'), storage.getUserMap('bonus-picks'), storage.get('bonus-answers'), storage.get('teams'), storage.get('manual-live')]).then(([parts, pins, preds, res, bPicks, bAns, teams, ml]) => {
       if (Array.isArray(parts)) setParticipants(parts);
       if (pins && typeof pins === 'object') setUserPins(pins);
       if (preds && typeof preds === 'object') setPredictions(preds);
@@ -3901,14 +3947,40 @@ const App = () => {
     });
   }, []);
 
+  // Restore session on reload — user stays logged in after page refresh
+  useEffect(() => {
+    try {
+      const s = sessionStorage.getItem('qft_cu');
+      if (s) setCurrentUser(s);
+    } catch {}
+  }, []);
+
   // Firestore live listeners
   useEffect(() => {
     if (!FB_ON) return;
     const subs = [];
+    // Blob docs — reads snap.data().value as JSON
     const sub = (doc, fn) => subs.push(db.collection(NS).doc(doc).onSnapshot(snap => {
       try {
         if (snap.exists) fn(JSON.parse(snap.data().value || 'null'));
       } catch {}
+    }, () => {}));
+    // Per-user field docs — each user's data is a separate Firestore field
+    const subMap = (doc, fn) => subs.push(db.collection(NS).doc(doc).onSnapshot(snap => {
+      if (!snap.exists) return;
+      const data = snap.data() || {};
+      const map = {};
+      if (data.value) {
+        try {
+          Object.assign(map, JSON.parse(data.value));
+        } catch {}
+      } // legacy
+      Object.entries(data).filter(([k]) => k !== 'value').forEach(([k, v]) => {
+        try {
+          map[k] = JSON.parse(v);
+        } catch {}
+      });
+      fn(map);
     }, () => {}));
     sub('participants', d => {
       if (Array.isArray(d)) setParticipants(d);
@@ -3916,14 +3988,16 @@ const App = () => {
     sub('pins', d => {
       if (d && typeof d === 'object') setUserPins(d);
     });
-    sub('predictions', d => {
-      if (d && typeof d === 'object') setPredictions(d);
+    subMap('predictions', d => {
+      setPredictions(d);
+      lsSet('predictions', d);
     });
     sub('result', d => {
       if (d && typeof d === 'object') setResult(d);
     });
-    sub('bonus-picks', d => {
-      if (d && typeof d === 'object') setBonusPicks(d);
+    subMap('bonus-picks', d => {
+      setBonusPicks(d);
+      lsSet('bonus-picks', d);
     });
     sub('bonus-answers', d => {
       if (d && typeof d === 'object') setBonusAnswers(d);
@@ -4056,7 +4130,11 @@ const App = () => {
     if (existing) {
       const stored = userPins[name];
       if (!stored) {
+        // No PIN on record — just let them in (legacy or admin reset)
         setCurrentUser(name);
+        try {
+          sessionStorage.setItem('qft_cu', name);
+        } catch {}
         return;
       }
       const hashed = await hashPin(pin, name);
@@ -4070,10 +4148,14 @@ const App = () => {
           storage.set('pins', np);
         }
         setCurrentUser(name);
+        try {
+          sessionStorage.setItem('qft_cu', name);
+        } catch {}
       } else {
         alert('Incorrect PIN. Please try again.');
       }
     } else {
+      // New user — hash PIN and persist to Firestore before setting session
       const hashed = await hashPin(pin, name);
       const np = [...participants, name];
       const nPins = {
@@ -4082,18 +4164,23 @@ const App = () => {
       };
       setParticipants(np);
       setUserPins(nPins);
-      storage.set('participants', np);
-      storage.set('pins', nPins);
+      // Await both writes so other devices see this user immediately
+      await Promise.all([storage.set('participants', np), storage.set('pins', nPins)]);
       setCurrentUser(name);
+      try {
+        sessionStorage.setItem('qft_cu', name);
+      } catch {}
     }
   };
+
+  // Per-user merge writes — each user only touches their own field, no race conditions
   const savePrediction = async pred => {
     const u = {
       ...predictions,
       [currentUser]: pred
     };
     setPredictions(u);
-    storage.set('predictions', u);
+    await storage.setUserField('predictions', currentUser, pred);
   };
   const saveBonusPick = async pick => {
     const u = {
@@ -4101,7 +4188,7 @@ const App = () => {
       [currentUser]: pick
     };
     setBonusPicks(u);
-    storage.set('bonus-picks', u);
+    await storage.setUserField('bonus-picks', currentUser, pick);
   };
   const saveResult = async res => {
     setResult(res);
@@ -4150,10 +4237,19 @@ const App = () => {
     setUserPins(nPins);
     setPredictions(nPreds);
     setBonusPicks(nBp);
-    storage.set('participants', np);
-    storage.set('pins', nPins);
-    storage.set('predictions', nPreds);
-    storage.set('bonus-picks', nBp);
+    lsSet('participants', np);
+    lsSet('pins', nPins);
+    lsSet('predictions', nPreds);
+    lsSet('bonus-picks', nBp);
+    if (FB_ON) {
+      await Promise.all([storage.set('participants', np), storage.set('pins', nPins),
+      // Delete this user's individual fields from per-user docs
+      db.collection(NS).doc('predictions').update({
+        [name]: firebase.firestore.FieldValue.delete()
+      }).catch(() => {}), db.collection(NS).doc('bonus-picks').update({
+        [name]: firebase.firestore.FieldValue.delete()
+      }).catch(() => {})]);
+    }
   };
   const predLocked = !!(result && result.h != null && result.h !== '') || Date.now() > new Date(MATCH_KICKOFF).getTime();
   const myPred = predictions[currentUser] || {};
@@ -4294,7 +4390,12 @@ const App = () => {
       color: 'white'
     }
   }, currentUser), /*#__PURE__*/React.createElement("button", {
-    onClick: () => setCurrentUser(null),
+    onClick: () => {
+      setCurrentUser(null);
+      try {
+        sessionStorage.removeItem('qft_cu');
+      } catch {}
+    },
     style: {
       background: 'none',
       border: 'none',
