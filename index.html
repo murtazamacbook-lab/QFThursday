@@ -420,8 +420,7 @@ const CSS = `
   @keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
   @keyframes welcomeIn{0%{opacity:0;transform:translateX(-50%) translateY(30px) scale(.9)}60%{transform:translateX(-50%) translateY(-6px) scale(1.02)}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
   @keyframes welcomeOut{to{opacity:0;transform:translateX(-50%) translateY(-20px) scale(.95)}}
-  @keyframes ballSpin{to{transform:rotate(360deg)}}
-  @keyframes wcBallFloat{0%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-14px) rotate(180deg)}100%{transform:translateY(0) rotate(360deg)}}
+  @keyframes wcTrophyFloat{0%,100%{transform:translateY(0) scale(1);filter:drop-shadow(0 4px 20px rgba(214,163,0,.45)) drop-shadow(0 2px 6px rgba(0,0,0,.12))}50%{transform:translateY(-20px) scale(1.07);filter:drop-shadow(0 18px 36px rgba(214,163,0,.75)) drop-shadow(0 8px 16px rgba(0,0,0,.18))}}
   @keyframes shrinkBar{from{width:100%}to{width:0%}}
   @keyframes loadBar{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
   .fadein{animation:fadein .25s ease;}
@@ -1877,23 +1876,23 @@ const WelcomeToast = ({
   })))));
 };
 
-// ── LOGIN BALL ANIMATION ────────────────────────────────────────────
+// ── LOGIN TROPHY ANIMATION ────────────────────────────────────────────
 const BallEntrance = () => /*#__PURE__*/React.createElement("div", {
   style: {
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 20,
+    marginTop: 8,
     lineHeight: 1
   }
 }, /*#__PURE__*/React.createElement("span", {
   style: {
     display: 'inline-block',
-    fontSize: 72,
-    animation: 'wcBallFloat 2.4s ease-in-out infinite',
-    filter: 'drop-shadow(0 8px 20px rgba(0,0,0,.18))',
+    fontSize: 96,
+    animation: 'wcTrophyFloat 2.8s ease-in-out infinite',
     pointerEvents: 'none',
     userSelect: 'none'
   }
-}, "\u26BD"));
+}, "\uD83C\uDFC6"));
 
 // ── PREDICT VIEW (CENTER) ─────────────────────────────────────────
 const PredictView = ({
