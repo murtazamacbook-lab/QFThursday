@@ -413,23 +413,22 @@ const CSS = `
   .btn-green{background:var(--forest);}.btn-danger{background:var(--burgundy);}.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);}.btn-amber{background:var(--amber);}
   .score-input{width:56px;padding:8px;text-align:center;font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;border:2px solid var(--line);border-radius:8px;background:white;}
   .score-input:focus{outline:none;border-color:var(--amber);}
-  @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes fadein{from{opacity:0}to{opacity:1}}
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.4}}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.75}}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-  .fadein{animation:fadein .3s ease;}
-  .app{animation:fadein .3s ease;}
+  .fadein{animation:fadein .25s ease;}
   .scrollbar::-webkit-scrollbar{width:4px;height:4px;}.scrollbar::-webkit-scrollbar-track{background:transparent;}.scrollbar::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px;}
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}
   .page-grid{display:grid;grid-template-columns:270px 1fr 260px;gap:20px;max-width:1280px;margin:0 auto;padding:20px 16px;align-items:start;}
   .page-grid>*{min-width:0;}
-  .sidebar-left,.sidebar-right{position:sticky;top:160px;align-self:start;}
+  .page-grid>main{min-height:calc(100vh - 150px);}
+  .sidebar-left,.sidebar-right{position:sticky;top:148px;align-self:start;}
   .qft-header{position:sticky;top:0;z-index:200;background:var(--paper);border-bottom:1px solid var(--line);}
   .tab-btn{padding:10px 14px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;color:var(--ink-soft);border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
   .tab-btn.active{color:var(--ink);font-weight:700;border-bottom-color:var(--burgundy);}
   @media(max-width:1100px){.page-grid{grid-template-columns:240px 1fr;}}
-  @media(max-width:800px){.page-grid{grid-template-columns:1fr;}.sidebar-left,.sidebar-right{position:static;}}
+  @media(max-width:800px){.page-grid{grid-template-columns:1fr;}.sidebar-left,.sidebar-right{position:static;}.page-grid>main{min-height:unset;}}
   .sidebar-right{display:block;}@media(max-width:1100px){.sidebar-right{display:none;}}
 `;
 
@@ -6343,7 +6342,7 @@ const App = () => {
     style: {
       color: 'var(--burgundy)'
     }
-  }, "QF Thursday"), /*#__PURE__*/React.createElement("span", {
+  }, "Quarter Final Thursday"), /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--line)',
       fontSize: 15
