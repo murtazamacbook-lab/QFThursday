@@ -1834,6 +1834,25 @@ const PredictView = ({
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
+  const handleClear = async () => {
+    if (!window.confirm('Clear your prediction? This cannot be undone.')) return;
+    setH('');
+    setA('');
+    setPk('');
+    setHGoals([]);
+    setAGoals([]);
+    setCards({
+      hY: '',
+      hR: '',
+      aY: '',
+      aR: ''
+    });
+    setSaving(true);
+    await onSave({});
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
   const hasResult = result && result.h != null && result.h !== '';
   const myScore = useMemo(() => {
     if (!hasResult || h === '' || a === '') return null;
@@ -2481,15 +2500,29 @@ const PredictView = ({
       fontFamily: 'inherit',
       fontSize: 13
     }
-  }))))))), !locked && /*#__PURE__*/React.createElement("button", {
+  }))))))), !locked && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
     className: "btn btn-green",
     onClick: handleSave,
     disabled: saving || h === '' || a === '' || needPk && !pk,
     style: {
-      width: '100%',
+      flex: 1,
       justifyContent: 'center'
     }
-  }, saving ? '⏳ Saving…' : saved ? '✅ Saved!' : '💾 Save Prediction'), myScore !== null && /*#__PURE__*/React.createElement("div", {
+  }, saving ? '⏳ Saving…' : saved ? '✅ Saved!' : '💾 Save Prediction'), (h !== '' || a !== '') && /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-danger",
+    onClick: handleClear,
+    disabled: saving,
+    style: {
+      flexShrink: 0,
+      justifyContent: 'center'
+    },
+    title: "Clear prediction"
+  }, "\uD83D\uDDD1 Clear")), myScore !== null && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 12,
       padding: '10px 14px',
