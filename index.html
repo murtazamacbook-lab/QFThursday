@@ -281,7 +281,7 @@ const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.wor
 const CSS = `
   :root{--ink:#1a1a1a;--ink-soft:#6b6b6b;--paper:#FBF8F0;--cream2:#F3EFE5;--line:#D8D1C4;--line-soft:#EAE5DA;--amber:#D6892A;--forest:#1B4332;--burgundy:#9F1B1B;}
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'DM Sans',sans-serif;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'DM Sans',sans-serif;overflow-y:scroll;}
   .display{font-family:'Fraunces',serif;}
   .mono{font-family:'JetBrains Mono',monospace;}
   .micro-caps{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);}
@@ -303,7 +303,8 @@ const CSS = `
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}
   .page-grid{display:grid;grid-template-columns:270px 1fr 260px;gap:20px;max-width:1280px;margin:0 auto;padding:20px 16px;align-items:start;}
   .page-grid>*{min-width:0;}
-  .sidebar-left,.sidebar-right{position:sticky;top:16px;}
+  .sidebar-left,.sidebar-right{position:sticky;top:16px;align-self:start;}
+  .qft-header{position:sticky;top:0;z-index:200;}
   @media(max-width:1100px){.page-grid{grid-template-columns:240px 1fr;}}
   @media(max-width:800px){.page-grid{grid-template-columns:1fr;}.sidebar-left,.sidebar-right{position:static;}}
   .sidebar-right{display:block;}@media(max-width:1100px){.sidebar-right{display:none;}}
@@ -4269,7 +4270,8 @@ const App = () => {
     onLogin: handleLogin,
     participants: participants
   });
-  const isAdmin = currentUser.toLowerCase() === 'admin' || currentUser.toLowerCase() === 'murtaza';
+  const ADMIN_NAMES = ['admin', 'murtaza', 'ayo', 'parth thakkar'];
+  const isAdmin = ADMIN_NAMES.includes(currentUser.toLowerCase());
   const tabs = [{
     id: 'predict',
     label: '🎯 Predict'
@@ -4288,7 +4290,9 @@ const App = () => {
   }] : [])];
   return /*#__PURE__*/React.createElement("div", {
     className: "app"
-  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement(LiveMatchBanner, {
+  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement("div", {
+    className: "qft-header"
+  }, /*#__PURE__*/React.createElement(LiveMatchBanner, {
     liveData: liveData,
     loading: liveLoading
   }), /*#__PURE__*/React.createElement("div", {
@@ -4427,7 +4431,7 @@ const App = () => {
       transition: 'all .15s',
       whiteSpace: 'nowrap'
     }
-  }, t.label))))), /*#__PURE__*/React.createElement("div", {
+  }, t.label)))))), /*#__PURE__*/React.createElement("div", {
     className: "page-grid"
   }, /*#__PURE__*/React.createElement("div", {
     className: "sidebar-left"
