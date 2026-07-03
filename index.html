@@ -417,6 +417,14 @@ const CSS = `
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.4}}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+  @keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+  @keyframes welcomeIn{0%{opacity:0;transform:translateX(-50%) translateY(30px) scale(.9)}60%{transform:translateX(-50%) translateY(-6px) scale(1.02)}100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+  @keyframes welcomeOut{to{opacity:0;transform:translateX(-50%) translateY(-20px) scale(.95)}}
+  @keyframes ballBounce{0%{transform:translateY(-120px) scale(.8);opacity:0}30%{transform:translateY(0) scale(1.15);opacity:1}45%{transform:translateY(-40px) scale(.95)}60%{transform:translateY(0) scale(1.08)}72%{transform:translateY(-18px) scale(.98)}82%{transform:translateY(0) scale(1.04)}90%{transform:translateY(-7px)}100%{transform:translateY(0) scale(1)}}
+  @keyframes ballSpin{to{transform:rotate(360deg)}}
+  @keyframes ballFade{0%,70%{opacity:1}100%{opacity:0;transform:scale(1.3) translateY(-30px)}}
+  @keyframes shrinkBar{from{width:100%}to{width:0%}}
+  @keyframes loadBar{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
   .fadein{animation:fadein .25s ease;}
   .scrollbar::-webkit-scrollbar{width:4px;height:4px;}.scrollbar::-webkit-scrollbar-track{background:transparent;}.scrollbar::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px;}
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}
@@ -1781,6 +1789,112 @@ const GoalToast = ({
       fontSize: 12
     }
   }, "\u2715 Dismiss"));
+};
+
+// ── WELCOME TOAST ────────────────────────────────────────────────────
+const WelcomeToast = ({
+  name,
+  onDone
+}) => {
+  const [out, setOut] = React.useState(false);
+  React.useEffect(() => {
+    const t1 = setTimeout(() => setOut(true), 8500);
+    const t2 = setTimeout(() => onDone && onDone(), 9200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
+  const isNew = !name;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      top: 80,
+      left: '50%',
+      zIndex: 10000,
+      pointerEvents: 'none',
+      animation: out ? 'welcomeOut .6s ease forwards' : 'welcomeIn .5s cubic-bezier(.34,1.56,.64,1) forwards'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'linear-gradient(135deg,#1a1a2e,#0f3460)',
+      color: 'white',
+      borderRadius: 16,
+      padding: '18px 28px',
+      boxShadow: '0 8px 40px rgba(0,0,0,.45)',
+      textAlign: 'center',
+      minWidth: 260,
+      maxWidth: 340
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 32,
+      marginBottom: 6
+    }
+  }, '🎉'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 18,
+      fontWeight: 800,
+      letterSpacing: '-.01em',
+      marginBottom: 4
+    }
+  }, "Welcome", name ? `, ${name}` : '', "!"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'rgba(255,255,255,.65)',
+      lineHeight: 1.4
+    }
+  }, isNew ? 'Your picks are locked in — good luck!' : '⚽ Quarter-Final day is almost here — make your picks count!'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      height: 3,
+      borderRadius: 3,
+      background: 'rgba(255,255,255,.15)',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: '100%',
+      background: '#FFD700',
+      borderRadius: 3,
+      animation: 'shrinkBar 8.5s linear forwards'
+    }
+  }))));
+};
+
+// ── LOGIN BALL ANIMATION ────────────────────────────────────────────
+const BallEntrance = () => {
+  const [gone, setGone] = React.useState(false);
+  React.useEffect(() => {
+    const t = setTimeout(() => setGone(true), 2200);
+    return () => clearTimeout(t);
+  }, []);
+  if (gone) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      top: '15vh',
+      left: '50%',
+      marginLeft: -40,
+      zIndex: 9999,
+      pointerEvents: 'none'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 80,
+      height: 80,
+      animation: 'ballBounce 1.4s cubic-bezier(.36,.07,.19,.97) forwards'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 80,
+      height: 80,
+      fontSize: 72,
+      lineHeight: '80px',
+      textAlign: 'center',
+      animation: 'ballFade 2.2s ease forwards'
+    }
+  }, "\u26BD")));
 };
 
 // ── PREDICT VIEW (CENTER) ─────────────────────────────────────────
@@ -3482,11 +3596,11 @@ const FanPicksView = ({
       color: 'white',
       lineHeight: 1.1
     }
-  }, "QF Thursday \u2014 ", /*#__PURE__*/React.createElement("span", {
+  }, "Quarter Final Thursday \u2014 ", /*#__PURE__*/React.createElement("span", {
     style: {
       color: '#FFD700'
     }
-  }, "The Battle")), /*#__PURE__*/React.createElement("div", {
+  }, "Fan Predictions")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: 'repeat(4,1fr)',
@@ -4401,6 +4515,9 @@ const AdminView = ({
     id: 'goals',
     label: `⚡ Goals (${(liveGoals?.goals || []).length})`
   }, {
+    id: 'backup',
+    label: '💾 Backup'
+  }, {
     id: 'users',
     label: '👥 Users'
   }, {
@@ -5007,7 +5124,199 @@ const AdminView = ({
       border: '1px solid rgba(214,137,42,.3)',
       fontSize: 12
     }
-  }, /*#__PURE__*/React.createElement("strong", null, "\uD83D\uDCA1 Tip:"), " Set status to ", /*#__PURE__*/React.createElement("code", null, "FT"), " and uncheck \"Enable override\" once ESPN shows the correct final score.")), section === 'users' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("strong", null, "\uD83D\uDCA1 Tip:"), " Set status to ", /*#__PURE__*/React.createElement("code", null, "FT"), " and uncheck \"Enable override\" once ESPN shows the correct final score.")), section === 'backup' && (() => {
+    const [backupData, setBackupData] = React.useState(null);
+    const [backupTs, setBackupTs] = React.useState(null);
+    const [restoreUser, setRestoreUser] = React.useState('');
+    const [restoreMsg, setRestoreMsg] = React.useState('');
+    const doBackup = () => {
+      const snap = {
+        ts: Date.now(),
+        predictions: {
+          ...predictions
+        },
+        bonusPicks: {
+          ...bonusPicks
+        },
+        participants: [...participants]
+      };
+      setBackupData(snap);
+      setBackupTs(new Date().toLocaleTimeString());
+      setRestoreMsg('');
+    };
+    const downloadBackup = () => {
+      if (!backupData) return;
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], {
+        type: 'application/json'
+      });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `qft-backup-${Date.now()}.json`;
+      a.click();
+    };
+    const doRestore = async name => {
+      if (!backupData) {
+        setRestoreMsg('❌ No backup loaded — take a backup first.');
+        return;
+      }
+      const targets = name ? [name] : participants;
+      let count = 0;
+      for (const n of targets) {
+        if (backupData.predictions[n] != null) {
+          await storage.setUserField('predictions', n, backupData.predictions[n]);
+          count++;
+        }
+        if (backupData.bonusPicks[n] != null) {
+          await storage.setUserField('bonus-picks', n, backupData.bonusPicks[n]);
+        }
+      }
+      setRestoreMsg(`✅ Restored ${count} prediction${count !== 1 ? 's' : ''} ${name ? `for ${name}` : 'for all users'}.`);
+    };
+    return /*#__PURE__*/React.createElement("div", {
+      className: "card"
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 700,
+        fontSize: 15,
+        marginBottom: 4
+      }
+    }, "\uD83D\uDCBE Backup & Restore"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: 'var(--ink-soft)',
+        marginBottom: 16
+      }
+    }, "Snapshot all predictions & bonus picks in memory. Download as JSON or restore to Firestore if data is lost."), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 16,
+        padding: '12px 14px',
+        background: 'rgba(27,94,63,.04)',
+        border: '1px solid rgba(27,94,63,.2)',
+        borderRadius: 6
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 600,
+        fontSize: 13,
+        marginBottom: 8
+      }
+    }, "\uD83D\uDCF8 Snapshot current data"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-green",
+      onClick: doBackup,
+      style: {
+        flex: 1,
+        justifyContent: 'center',
+        minWidth: 120
+      }
+    }, "\uD83D\uDCF8 Take Snapshot"), /*#__PURE__*/React.createElement("button", {
+      className: "btn",
+      onClick: downloadBackup,
+      disabled: !backupData,
+      style: {
+        flex: 1,
+        justifyContent: 'center',
+        minWidth: 120,
+        background: 'var(--ink)'
+      }
+    }, "\u2B07\uFE0F Download JSON")), backupTs && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--forest)',
+        marginTop: 8,
+        fontWeight: 600
+      }
+    }, "\u2705 Snapshot taken at ", backupTs, " \u2014 ", Object.keys(backupData?.predictions || {}).length, " predictions, ", Object.keys(backupData?.bonusPicks || {}).length, " bonus picks")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 16,
+        padding: '12px 14px',
+        background: 'rgba(214,137,42,.05)',
+        border: '1px solid rgba(214,137,42,.25)',
+        borderRadius: 6
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 600,
+        fontSize: 13,
+        marginBottom: 8
+      }
+    }, "\u267B\uFE0F Restore all users from snapshot"), /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-amber",
+      onClick: () => doRestore(null),
+      disabled: !backupData,
+      style: {
+        width: '100%',
+        justifyContent: 'center'
+      }
+    }, "\u267B\uFE0F Restore All Predictions")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '12px 14px',
+        background: 'rgba(41,128,185,.04)',
+        border: '1px solid rgba(41,128,185,.2)',
+        borderRadius: 6
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 600,
+        fontSize: 13,
+        marginBottom: 8
+      }
+    }, "\uD83D\uDC64 Restore single user from snapshot"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8,
+        flexWrap: 'wrap',
+        marginBottom: 8
+      }
+    }, participants.sort().map(p => /*#__PURE__*/React.createElement("button", {
+      key: p,
+      onClick: () => setRestoreUser(p),
+      style: {
+        padding: '5px 12px',
+        borderRadius: 20,
+        border: `1px solid ${restoreUser === p ? 'var(--amber)' : 'var(--line)'}`,
+        background: restoreUser === p ? 'rgba(214,137,42,.1)' : 'var(--cream2)',
+        cursor: 'pointer',
+        fontSize: 12,
+        fontFamily: 'inherit',
+        fontWeight: restoreUser === p ? 700 : 500
+      }
+    }, p))), /*#__PURE__*/React.createElement("button", {
+      className: "btn",
+      onClick: () => doRestore(restoreUser),
+      disabled: !backupData || !restoreUser,
+      style: {
+        width: '100%',
+        justifyContent: 'center',
+        background: '#2980b9'
+      }
+    }, "\uD83D\uDC64 Restore ", restoreUser || '(select user)')), restoreMsg && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 12,
+        padding: '10px 14px',
+        background: 'rgba(27,94,63,.08)',
+        borderRadius: 6,
+        fontSize: 13,
+        fontWeight: 600,
+        color: 'var(--forest)'
+      }
+    }, restoreMsg), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 12,
+        padding: '8px 12px',
+        background: 'rgba(159,27,27,.06)',
+        borderRadius: 6,
+        border: '1px solid rgba(159,27,27,.2)',
+        fontSize: 11,
+        color: 'var(--ink-soft)'
+      }
+    }, "\u26A0\uFE0F Snapshot is in-memory only \u2014 it resets on page refresh. Download JSON for a permanent backup."));
+  })(), section === 'users' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: 'repeat(3,1fr)',
@@ -5790,7 +6099,7 @@ const LoginScreen = ({
       justifyContent: 'center',
       padding: 20
     }
-  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement(BallEntrance, null), /*#__PURE__*/React.createElement("div", {
     style: {
       maxWidth: 440,
       width: '100%'
@@ -5814,13 +6123,13 @@ const LoginScreen = ({
       margin: '0 0 8px',
       letterSpacing: '-.02em'
     }
-  }, "QF ", /*#__PURE__*/React.createElement("em", null, "Thursday"), /*#__PURE__*/React.createElement("br", null), "Prediction Pool"), /*#__PURE__*/React.createElement("p", {
+  }, "Quarter Final ", /*#__PURE__*/React.createElement("em", null, "Thursday"), /*#__PURE__*/React.createElement("br", null), "Prediction Pool"), /*#__PURE__*/React.createElement("p", {
     style: {
       color: 'var(--ink-soft)',
       fontSize: 14,
       margin: '4px 0 0'
     }
-  }, "July 9, 2026 \xB7 One match. All the stakes."), participants.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "July 9, 2026 \xB7 \uD83D\uDD25 One match. Predict it. Win it."), participants.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 16,
       display: 'inline-flex',
@@ -6050,6 +6359,7 @@ const App = () => {
   const [liveLoading, setLiveLoading] = useState(false);
   const [view, setView] = useState('predict');
   const [ready, setReady] = useState(false);
+  const [loadMsg, setLoadMsg] = useState('Connecting…');
   const [onlineUsers, setOnlineUsers] = useState({}); // name→{ts,mob} for admin online panel
   const [manualLive, setManualLive] = useState({}); // admin live score override
   const [liveGoals, setLiveGoals] = useState({
@@ -6057,11 +6367,17 @@ const App = () => {
     cards: {}
   });
   const [goalToast, setGoalToast] = useState(null);
+  const [welcomeToast, setWelcomeToast] = useState(null);
   const prevGoalCountRef = useRef(0);
 
   // Load all data
   useEffect(() => {
+    setLoadMsg('Fetching player data…');
+    const t1 = setTimeout(() => setLoadMsg('Downloading predictions…'), 1200);
+    const t2 = setTimeout(() => setLoadMsg('Almost ready…'), 3000);
     Promise.all([storage.get('participants'), storage.get('pins'), storage.getUserMap('predictions'), storage.get('result'), storage.getUserMap('bonus-picks'), storage.get('bonus-answers'), storage.get('teams'), storage.get('manual-live')]).then(([parts, pins, preds, res, bPicks, bAns, teams, ml]) => {
+      clearTimeout(t1);
+      clearTimeout(t2);
       if (Array.isArray(parts)) setParticipants(parts);
       if (pins && typeof pins === 'object') setUserPins(pins);
       if (preds && typeof preds === 'object') setPredictions(preds);
@@ -6305,6 +6621,7 @@ const App = () => {
       if (!stored) {
         // No PIN on record — just let them in (legacy or admin reset)
         setCurrentUser(name);
+        setWelcomeToast(name);
         try {
           sessionStorage.setItem('qft_cu', name);
         } catch {}
@@ -6321,6 +6638,7 @@ const App = () => {
           storage.set('pins', np);
         }
         setCurrentUser(name);
+        setWelcomeToast(name);
         try {
           sessionStorage.setItem('qft_cu', name);
         } catch {}
@@ -6340,6 +6658,7 @@ const App = () => {
       // Await both writes so other devices see this user immediately
       await Promise.all([storage.set('participants', np), storage.set('pins', nPins)]);
       setCurrentUser(name);
+      setWelcomeToast(name);
       try {
         sessionStorage.setItem('qft_cu', name);
       } catch {}
@@ -6452,14 +6771,44 @@ const App = () => {
     style: {
       minHeight: '100vh',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center'
+      justifyContent: 'center',
+      gap: 16
     }
-  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement("div", {
     style: {
+      fontSize: 36,
+      animation: 'spin 1.2s linear infinite',
+      display: 'inline-block'
+    }
+  }, "\u26BD"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 15,
+      color: 'var(--ink)'
+    }
+  }, loadMsg), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
       color: 'var(--ink-soft)'
     }
-  }, "Loading\u2026"));
+  }, "Fetching from Firestore\u2026"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 200,
+      height: 4,
+      background: 'var(--cream2)',
+      borderRadius: 2,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: '100%',
+      background: 'var(--burgundy)',
+      borderRadius: 2,
+      animation: 'loadBar 4s ease-in-out infinite'
+    }
+  })));
   if (!currentUser) return /*#__PURE__*/React.createElement(LoginScreen, {
     onLogin: handleLogin,
     participants: participants
@@ -6484,6 +6833,9 @@ const App = () => {
   }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement(GoalToast, {
     toast: goalToast,
     onDismiss: () => setGoalToast(null)
+  }), welcomeToast && /*#__PURE__*/React.createElement(WelcomeToast, {
+    name: welcomeToast,
+    onDone: () => setWelcomeToast(null)
   }), /*#__PURE__*/React.createElement("div", {
     className: "qft-header"
   }, /*#__PURE__*/React.createElement(LiveMatchBanner, {
