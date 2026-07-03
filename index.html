@@ -1722,7 +1722,8 @@ const PredictView = ({
   bonusPick = {},
   onSaveBonusPick,
   bonusAnswers = {},
-  liveGoals = {}
+  liveGoals = {},
+  venue = ''
 }) => {
   const [h, setH] = useState('');
   const [a, setA] = useState('');
@@ -2031,7 +2032,7 @@ const PredictView = ({
       gap: 5,
       justifyContent: 'center'
     }
-  }, "\uD83D\uDCCD ", liveGoals?.venue || liveData?.venue || MATCH_VENUE), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCCD ", venue || MATCH_VENUE), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -6454,7 +6455,8 @@ const App = () => {
     bonusPick: bonusPicks[currentUser] || {},
     onSaveBonusPick: saveBonusPick,
     bonusAnswers: bonusAnswers,
-    liveGoals: liveGoals
+    liveGoals: liveGoals,
+    venue: liveData?.venue || MATCH_VENUE
   }), view === 'leaderboard' && /*#__PURE__*/React.createElement(LeaderboardView, {
     participants: participants,
     predictions: predictions,
