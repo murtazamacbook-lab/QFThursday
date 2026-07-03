@@ -1117,7 +1117,9 @@ const PredictionSpotlight = ({
   result,
   home,
   away,
-  liveGoals = {}
+  liveGoals = {},
+  bonusPicks = {},
+  bonusAnswers = {}
 }) => {
   const hasResult = result && result.h != null && result.h !== '';
   const withPicks = participants.filter(n => {
@@ -1127,9 +1129,10 @@ const PredictionSpotlight = ({
   const score = s => {
     const base = computeScore(predictions[s] || {}, result, home, away);
     const detail = computeGoalDetailPts(predictions[s] || {}, liveGoals);
+    const bonus = computeBonusPts(bonusPicks[s] || {}, bonusAnswers);
     return {
       ...base,
-      total: base.total + detail.total
+      total: base.total + detail.total + bonus
     };
   };
   if (!hasResult) {
@@ -1870,8 +1873,9 @@ const PredictView = ({
       cards
     };
     const detail = computeGoalDetailPts(pred, liveGoals).total;
-    return base + detail;
-  }, [h, a, pk, hGoals, aGoals, cards, result, home, away, hasResult, liveGoals]);
+    const bonus = computeBonusPts(bonusPick || {}, bonusAnswers);
+    return base + detail + bonus;
+  }, [h, a, pk, hGoals, aGoals, cards, result, home, away, hasResult, liveGoals, bonusPick, bonusAnswers]);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
@@ -6492,7 +6496,9 @@ const App = () => {
     result: result,
     home: home,
     away: away,
-    liveGoals: liveGoals
+    liveGoals: liveGoals,
+    bonusPicks: bonusPicks,
+    bonusAnswers: bonusAnswers
   })), /*#__PURE__*/React.createElement("main", null, view === 'predict' && /*#__PURE__*/React.createElement(PredictView, {
     currentUser: currentUser,
     prediction: myPred,
