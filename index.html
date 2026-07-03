@@ -441,6 +441,137 @@ const Avatar = ({
 };
 
 // ── TEAM SEARCH INPUT ─────────────────────────────────────────────
+// ── SQUAD ROSTERS ─────────────────────────────────────────────────
+const SQUAD = {
+  'Spain': ['Unai Simón', 'David Raya', 'Alex Remiro', 'Dani Carvajal', 'Jesús Navas', 'Robin Le Normand', 'Aymeric Laporte', 'Pau Cubarsí', 'Marc Cucurella', 'Alejandro Grimaldo', 'Pedri', 'Rodri', 'Fabián Ruiz', 'Mikel Merino', 'Marcos Llorente', 'Dani Olmo', 'Lamine Yamal', 'Nico Williams', 'Ferran Torres', 'Mikel Oyarzabal', 'Álvaro Morata', 'Joselu'],
+  'Mexico': ['Guillermo Ochoa', 'Luis Malagón', 'Rodolfo Cota', 'Jorge Sánchez', 'Kevin Álvarez', 'César Montes', 'Johan Vásquez', 'Jesús Gallardo', 'Gerardo Arteaga', 'Edson Álvarez', 'Carlos Rodríguez', 'Luis Chávez', 'Orbelín Pineda', 'Hirving Lozano', 'Alexis Vega', 'Roberto Alvarado', 'Santiago Giménez', 'Henry Martín', 'Raúl Jiménez', 'Julián Quiñones'],
+  'Argentina': ['Emiliano Martínez', 'Franco Armani', 'Gonzalo Montiel', 'Nahuel Molina', 'Cristian Romero', 'Lisandro Martínez', 'Nicolás Otamendi', 'Marcos Acuña', 'Nicolás Tagliafico', 'Alexis Mac Allister', 'Rodrigo De Paul', 'Enzo Fernández', 'Leandro Paredes', 'Guido Rodríguez', 'Giovani Lo Celso', 'Ángel Di María', 'Lionel Messi', 'Nicolás González', 'Paulo Dybala', 'Lautaro Martínez', 'Julián Álvarez'],
+  'Brazil': ['Alisson', 'Ederson', 'Danilo', 'Éder Militão', 'Marquinhos', 'Gabriel Magalhães', 'Alex Telles', 'Wendell', 'Casemiro', 'Lucas Paquetá', 'Bruno Guimarães', 'Fred', 'Rodrygo', 'Vinicius Jr', 'Raphinha', 'Gabriel Martinelli', 'Antony', 'Richarlison', 'Gabriel Jesus', 'Neymar', 'Pedro'],
+  'France': ['Mike Maignan', 'Hugo Lloris', 'Benjamin Pavard', 'Jules Koundé', 'Raphaël Varane', 'Ibrahima Konaté', 'Dayot Upamecano', 'Théo Hernández', 'Lucas Hernández', "N'Golo Kanté", 'Aurélien Tchouaméni', 'Adrien Rabiot', 'Youssouf Fofana', 'Antoine Griezmann', 'Kylian Mbappé', 'Ousmane Dembélé', 'Marcus Thuram', 'Olivier Giroud', 'Randal Kolo Muani', 'Jonathan Clauss', 'Matteo Guendouzi'],
+  'England': ['Jordan Pickford', 'Aaron Ramsdale', 'Trent Alexander-Arnold', 'Kieran Trippier', 'Harry Maguire', 'John Stones', 'Marc Guéhi', 'Luke Shaw', 'Ben Chilwell', 'Declan Rice', 'Jude Bellingham', 'Kobbie Mainoo', 'Conor Gallagher', 'Phil Foden', 'Marcus Rashford', 'Bukayo Saka', 'Jack Grealish', 'Raheem Sterling', 'Harry Kane', 'Ollie Watkins', 'Cole Palmer'],
+  'Germany': ['Manuel Neuer', 'Marc-André ter Stegen', 'Joshua Kimmich', 'Antonio Rüdiger', 'Niklas Süle', 'Matthias Ginter', 'David Raum', 'Robin Gosens', 'İlkay Gündoğan', 'Leon Goretzka', 'Toni Kroos', 'Florian Wirtz', 'Kai Havertz', 'Leroy Sané', 'Jamal Musiala', 'Thomas Müller', 'Serge Gnabry', 'Niclas Füllkrug', 'Lukas Nmecha', 'Christopher Nkunku'],
+  'Portugal': ['Rui Patrício', 'Diogo Costa', 'João Cancelo', 'Nélson Semedo', 'Rúben Dias', 'Pepe', 'Danilo Pereira', 'Nuno Mendes', 'Raphaël Guerreiro', 'Bernardo Silva', 'Bruno Fernandes', 'Rúben Neves', 'João Palhinha', 'Vitinha', 'João Félix', 'Rafael Leão', 'Cristiano Ronaldo', 'Gonçalo Ramos', 'Diogo Jota', 'André Silva'],
+  'Netherlands': ['Remko Pasveer', 'Bart Verbruggen', 'Denzel Dumfries', 'Jurriën Timber', 'Virgil van Dijk', 'Nathan Aké', 'Daley Blind', 'Ian Maatsen', 'Frenkie de Jong', 'Tijjani Reijnders', 'Marten de Roon', 'Georginio Wijnaldum', 'Xavi Simons', 'Steven Bergwijn', 'Donyell Malen', 'Cody Gakpo', 'Memphis Depay', 'Wout Weghorst', 'Brian Brobbey'],
+  'USA': ['Matt Turner', 'Ethan Horvath', 'Sergiño Dest', 'Joe Scally', 'Cameron Carter-Vickers', 'Tim Ream', 'Walker Zimmerman', 'Antonee Robinson', 'Tyler Adams', 'Weston McKennie', 'Yunus Musah', 'Brenden Aaronson', 'Christian Pulisic', 'Giovanni Reyna', 'Timothy Weah', 'Josh Sargent', 'Ricardo Pepi', 'Folarin Balogun', 'Jordan Morris', 'Reggie Cannon'],
+  'Morocco': ['Yassine Bounou', 'Munir Mohamedi', 'Achraf Hakimi', 'Noussair Mazraoui', 'Nayef Aguerd', 'Romain Saiss', 'Jawad El Yamiq', 'Adam Masina', 'Sofyan Amrabat', 'Azzedine Ounahi', 'Selim Amallah', 'Hakim Ziyech', 'Sofiane Boufal', 'Abde Ezzalzouli', 'Youssef En-Nesyri', 'Zakaria Aboukhlal', 'Anass Zaroury', 'Ayoub El Kaabi', 'Ilias Chair'],
+  'Canada': ['Milan Borjan', 'Maxime Crépeau', 'Alistair Johnston', 'Richie Laryea', 'Steven Vitória', 'Kamal Miller', 'Derek Cornelius', 'Sam Adekugbe', 'Atiba Hutchinson', 'Stephen Eustáquio', 'Mark-Anthony Kaye', 'Jonathan Osorio', 'Tajon Buchanan', 'Alphonso Davies', 'Junior Hoilett', 'Cyle Larin', 'Lucas Cavallini', 'Jonathan David', 'Théo Corbeanu', 'Liam Fraser'],
+  'Uruguay': ['Fernando Muslera', 'Sergio Rochet', 'Nahitan Nández', 'José María Giménez', 'Ronald Araújo', 'Sebastián Coates', 'Mathías Olivera', 'Federico Valverde', 'Rodrigo Bentancur', 'Matías Vecino', 'Lucas Torreira', 'Giorgian De Arrascaeta', 'Facundo Pellistri', 'Darwin Núñez', 'Luis Suárez', 'Edinson Cavani', 'Facundo Torres', 'Maxi Gómez'],
+  'Colombia': ['Camilo Vargas', 'Daniel Muñoz', 'Dávinson Sánchez', 'Yerry Mina', 'Johan Mojica', 'Wilmar Barrios', 'Mateus Uribe', 'Juan Cuadrado', 'James Rodríguez', 'Óscar Murillo', 'Luis Díaz', 'Rafael Santos Borré', 'Radamel Falcao', 'Jhon Durán', 'Sebastián Villa', 'Richard Ríos', 'Jefferson Lerma'],
+  'Japan': ['Shuichi Gonda', 'Hiroki Sakai', 'Takehiro Tomiyasu', 'Maya Yoshida', 'Ko Itakura', 'Yuto Nagatomo', 'Wataru Endo', 'Hidemasa Morita', 'Junya Ito', 'Daichi Kamada', 'Ritsu Doan', 'Takumi Minamino', 'Kaoru Mitoma', 'Ao Tanaka', 'Ayase Ueda', 'Daizen Maeda', 'Genki Haraguchi'],
+  'Australia': ['Mat Ryan', 'Milos Degenek', 'Harry Souttar', 'Kye Rowles', 'Joel King', 'Aziz Behich', 'Riley McGree', 'Jackson Irvine', 'Martin Boyle', 'Craig Goodwin', 'Ajdin Hrustic', 'Mathew Leckie', 'Garang Kuol', 'Mitch Duke', 'Adam Taggart', 'Jamie Maclaren'],
+  'South Korea': ['Kim Seung-gyu', 'Kim Min-jae', 'Kim Young-gwon', 'Kwon Kyung-won', 'Kim Jin-su', 'Jung Woo-young', 'Hwang In-beom', 'Son Heung-min', 'Lee Jae-sung', 'Cho Gue-sung', 'Hwang Hee-chan', 'Na Sang-ho', 'Lee Kang-in', 'Oh Hyeon-gyu'],
+  'Saudi Arabia': ['Mohammed Al-Owais', 'Ali Al-Bulayhi', 'Abdulelah Al-Amri', 'Hassan Tambakti', 'Yasser Al-Shahrani', 'Sami Al-Najei', 'Nasser Al-Dawsari', 'Salem Al-Dawsari', 'Mohammed Al-Qasim', 'Firas Al-Buraikan', 'Abdullah Al-Hamdan', 'Haitham Asiri'],
+  'Senegal': ['Édouard Mendy', 'Kalidou Koulibaly', 'Abdou Diallo', 'Youssouf Sabaly', 'Ismail Jakobs', 'Idrissa Gueye', 'Pape Matar Sarr', 'Nampalys Mendy', 'Sadio Mané', 'Ismaïla Sarr', 'Boulaye Dia', 'Habib Diallo', 'Cheikhou Kouyaté'],
+  'Croatia': ['Dominik Livaković', 'Josip Juranović', 'Joško Gvardiol', 'Dejan Lovren', 'Borna Barišić', 'Marcelo Brozović', 'Luka Modrić', 'Mateo Kovačić', 'Nikola Vlašić', 'Ivan Perišić', 'Andrej Kramarić', 'Bruno Petković', 'Mislav Oršić'],
+  'Switzerland': ['Yann Sommer', 'Nico Elvedi', 'Manuel Akanji', 'Ricardo Rodríguez', 'Silvan Widmer', 'Granit Xhaka', 'Remo Freuler', 'Denis Zakaria', 'Xherdan Shaqiri', 'Haris Seferović', 'Breel Embolo', 'Noah Okafor', 'Ruben Vargas']
+};
+
+// ── PLAYER SEARCH INPUT ────────────────────────────────────────────
+const PlayerSearchInput = ({
+  value,
+  onChange,
+  team,
+  placeholder = 'Scorer'
+}) => {
+  const [q, setQ] = useState(value || '');
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);
+  const ref = useRef();
+  useEffect(() => {
+    setQ(value || '');
+  }, [value]);
+  useEffect(() => {
+    const fn = e => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, []);
+  const players = SQUAD[team] || [];
+  const filtered = q.length < 1 ? players.slice(0, 10) : players.filter(p => p.toLowerCase().includes(q.toLowerCase())).slice(0, 10);
+  const handleChange = e => {
+    setQ(e.target.value);
+    onChange(e.target.value);
+    setOpen(true);
+    setHi(0);
+  };
+  const select = p => {
+    setQ(p);
+    onChange(p);
+    setOpen(false);
+  };
+  const handleKey = e => {
+    if (!open || !filtered.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHi(h => Math.min(h + 1, filtered.length - 1));
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHi(h => Math.max(h - 1, 0));
+    }
+    if (e.key === 'Enter' && filtered[hi]) {
+      e.preventDefault();
+      select(filtered[hi]);
+    }
+    if (e.key === 'Escape') setOpen(false);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    ref: ref,
+    style: {
+      position: 'relative'
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: q,
+    onChange: handleChange,
+    onFocus: () => setOpen(true),
+    onKeyDown: handleKey,
+    placeholder: placeholder,
+    style: {
+      padding: '6px 9px',
+      border: `1px solid ${q ? 'var(--forest)' : 'var(--line)'}`,
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 12,
+      width: '100%',
+      boxSizing: 'border-box'
+    }
+  }), open && (filtered.length > 0 || players.length === 0 && q.length > 0) && /*#__PURE__*/React.createElement("div", {
+    className: "scrollbar",
+    style: {
+      position: 'absolute',
+      zIndex: 300,
+      top: '100%',
+      left: 0,
+      right: 0,
+      background: 'white',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      boxShadow: '0 4px 16px rgba(0,0,0,.12)',
+      maxHeight: 200,
+      overflowY: 'auto',
+      marginTop: 2
+    }
+  }, filtered.map((p, i) => /*#__PURE__*/React.createElement("div", {
+    key: p,
+    onMouseDown: () => select(p),
+    onMouseEnter: () => setHi(i),
+    style: {
+      padding: '7px 10px',
+      cursor: 'pointer',
+      background: i === hi ? 'var(--cream2)' : 'white',
+      fontSize: 12,
+      fontWeight: i === hi ? 700 : 400
+    }
+  }, p)), players.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '7px 10px',
+      fontSize: 11,
+      color: 'var(--ink-soft)',
+      fontStyle: 'italic'
+    }
+  }, "No squad loaded for ", team || 'this team', " \u2014 type freely")));
+};
 const TeamSearchInput = ({
   value,
   onChange,
@@ -1973,22 +2104,14 @@ const PredictView = ({
       width: '100%',
       boxSizing: 'border-box'
     }
-  }), /*#__PURE__*/React.createElement("input", {
+  }), /*#__PURE__*/React.createElement(PlayerSearchInput, {
     value: g.scorer,
-    onChange: e => setHGoals(p => p.map((x, j) => j === i ? {
+    onChange: v => setHGoals(p => p.map((x, j) => j === i ? {
       ...x,
-      scorer: e.target.value
+      scorer: v
     } : x)),
-    placeholder: "Scorer",
-    style: {
-      padding: '6px 9px',
-      border: '1px solid var(--line)',
-      borderRadius: 4,
-      fontFamily: 'inherit',
-      fontSize: 12,
-      width: '100%',
-      boxSizing: 'border-box'
-    }
+    team: home,
+    placeholder: "Scorer"
   }))), aGoals.map((g, i) => /*#__PURE__*/React.createElement("div", {
     key: 'a' + i,
     style: {
@@ -2026,22 +2149,14 @@ const PredictView = ({
       width: '100%',
       boxSizing: 'border-box'
     }
-  }), /*#__PURE__*/React.createElement("input", {
+  }), /*#__PURE__*/React.createElement(PlayerSearchInput, {
     value: g.scorer,
-    onChange: e => setAGoals(p => p.map((x, j) => j === i ? {
+    onChange: v => setAGoals(p => p.map((x, j) => j === i ? {
       ...x,
-      scorer: e.target.value
+      scorer: v
     } : x)),
-    placeholder: "Scorer",
-    style: {
-      padding: '6px 9px',
-      border: '1px solid var(--line)',
-      borderRadius: 4,
-      fontFamily: 'inherit',
-      fontSize: 12,
-      width: '100%',
-      boxSizing: 'border-box'
-    }
+    team: away,
+    placeholder: "Scorer"
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
@@ -4729,19 +4844,11 @@ const AdminView = ({
     style: {
       fontWeight: 400
     }
-  }, "(affects scorer predictions scoring)")), /*#__PURE__*/React.createElement("input", {
+  }, "(affects scorer predictions scoring)")), /*#__PURE__*/React.createElement(PlayerSearchInput, {
     value: newGoalScorer,
-    onChange: e => setNewGoalScorer(e.target.value),
-    placeholder: "Player name",
-    style: {
-      width: '100%',
-      padding: '9px 12px',
-      border: '1px solid var(--line)',
-      borderRadius: 4,
-      fontFamily: 'inherit',
-      fontSize: 13,
-      boxSizing: 'border-box'
-    }
+    onChange: setNewGoalScorer,
+    team: newGoalTeam,
+    placeholder: "Player name"
   })), /*#__PURE__*/React.createElement("button", {
     className: "btn btn-green",
     onClick: async () => {
@@ -4974,19 +5081,11 @@ const AdminView = ({
         color: 'var(--ink-soft)',
         marginBottom: 4
       }
-    }, "Scorer"), /*#__PURE__*/React.createElement("input", {
+    }, "Scorer"), /*#__PURE__*/React.createElement(PlayerSearchInput, {
       value: editGoalScorer,
-      onChange: e => setEditGoalScorer(e.target.value),
-      placeholder: "Player name",
-      style: {
-        width: '100%',
-        padding: '8px 10px',
-        border: '1px solid var(--line)',
-        borderRadius: 4,
-        fontFamily: 'inherit',
-        fontSize: 13,
-        boxSizing: 'border-box'
-      }
+      onChange: setEditGoalScorer,
+      team: editGoalTeam,
+      placeholder: "Player name"
     }))), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
