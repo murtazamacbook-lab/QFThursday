@@ -787,7 +787,14 @@ const PredictionSpotlight = ({
     const p = predictions[n];
     return p && p.h != null && p.h !== '';
   });
-  const score = s => computeScore(predictions[s] || {}, result, home, away);
+  const score = s => {
+    const base = computeScore(predictions[s] || {}, result, home, away);
+    const detail = computeGoalDetailPts(predictions[s] || {}, liveGoals);
+    return {
+      ...base,
+      total: base.total + detail.total
+    };
+  };
   if (!hasResult) {
     return /*#__PURE__*/React.createElement("aside", null, /*#__PURE__*/React.createElement("div", {
       style: {
