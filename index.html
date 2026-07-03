@@ -52,6 +52,54 @@ const DEFAULT_ADMIN_PW = window.__ADMIN_PW || 'qftadmin2026';
 
 // ── MATCH ────────────────────────────────────────────────────────
 const MATCH_KICKOFF = '2026-07-09T20:00:00+01:00'; // Update once confirmed
+const MATCH_VENUE = 'SoFi Stadium, Inglewood, Los Angeles'; // QF Thu Jul 9
+
+// ── FIFA RANKINGS (June 2026 edition) ────────────────────────────
+const FIFA_RANKINGS = {
+  'Argentina': 1,
+  'France': 2,
+  'England': 3,
+  'Brazil': 4,
+  'Belgium': 5,
+  'Portugal': 6,
+  'Netherlands': 7,
+  'Spain': 8,
+  'Morocco': 9,
+  'Germany': 10,
+  'Italy': 11,
+  'Croatia': 12,
+  'Japan': 13,
+  'USA': 14,
+  'Mexico': 15,
+  'Senegal': 16,
+  'Switzerland': 17,
+  'Colombia': 18,
+  'Uruguay': 19,
+  'South Korea': 20,
+  'Denmark': 21,
+  'Austria': 22,
+  'Australia': 23,
+  'Ecuador': 24,
+  'Canada': 25,
+  'Wales': 26,
+  'Poland': 27,
+  'Cameroon': 28,
+  'Serbia': 29,
+  'Ghana': 30,
+  'Qatar': 31,
+  'Tunisia': 32,
+  'Saudi Arabia': 33,
+  'Costa Rica': 34,
+  'Iran': 35,
+  'South Africa': 36,
+  'Egypt': 37,
+  'Algeria': 38,
+  'Nigeria': 39,
+  'Ivory Coast': 40
+};
+const LOCK_BEFORE_MS = 10 * 60 * 1000; // lock 10 min before kickoff
+const LOCK_MS = new Date(MATCH_KICKOFF).getTime() - LOCK_BEFORE_MS;
+const WARN_MS = 60 * 60 * 1000; // show warning 1 hour before lock
 
 // ── SCORING ──────────────────────────────────────────────────────
 const SCORE_CORRECT_RESULT = 5;
@@ -368,6 +416,7 @@ const CSS = `
   @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.4}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.75}}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
   .fadein{animation:fadein .3s ease;}
   .app{animation:fadein .3s ease;}
@@ -1970,9 +2019,19 @@ const PredictView = ({
     className: "micro-caps",
     style: {
       color: 'rgba(255,255,255,.5)',
-      marginBottom: 8
+      marginBottom: 4
     }
-  }, "Quarter-Final \xB7 Thu Jul 9, 2026"), /*#__PURE__*/React.createElement("div", {
+  }, "Quarter-Final \xB7 Thu Jul 9, 2026 \xB7 3:00 PM EDT"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'rgba(255,255,255,.3)',
+      marginBottom: 10,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5,
+      justifyContent: 'center'
+    }
+  }, "\uD83D\uDCCD ", liveGoals?.venue || liveData?.venue || MATCH_VENUE), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -1994,7 +2053,13 @@ const PredictView = ({
       marginTop: 8,
       color: 'white'
     }
-  }, home || 'TBD')), /*#__PURE__*/React.createElement("div", {
+  }, home || 'TBD'), FIFA_RANKINGS[home] && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'rgba(255,255,255,.4)',
+      marginTop: 3
+    }
+  }, "FIFA #", FIFA_RANKINGS[home])), /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: 'center'
     }
@@ -2039,7 +2104,13 @@ const PredictView = ({
       marginTop: 8,
       color: 'white'
     }
-  }, away || 'TBD')))), /*#__PURE__*/React.createElement("div", {
+  }, away || 'TBD'), FIFA_RANKINGS[away] && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'rgba(255,255,255,.4)',
+      marginTop: 3
+    }
+  }, "FIFA #", FIFA_RANKINGS[away])))), /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       marginBottom: 16
@@ -2084,7 +2155,7 @@ const PredictView = ({
       alignItems: 'center',
       gap: 6,
       justifyContent: 'center',
-      marginBottom: 8
+      marginBottom: 4
     }
   }, /*#__PURE__*/React.createElement(Flag, {
     team: home,
@@ -2094,7 +2165,13 @@ const PredictView = ({
       fontWeight: 700,
       fontSize: 15
     }
-  }, home || 'TBD')), /*#__PURE__*/React.createElement("input", {
+  }, home || 'TBD')), FIFA_RANKINGS[home] && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-soft)',
+      marginBottom: 4
+    }
+  }, "FIFA #", FIFA_RANKINGS[home]), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: "0",
     max: "20",
@@ -2108,7 +2185,7 @@ const PredictView = ({
       fontWeight: 700,
       fontSize: 20,
       color: 'var(--ink-soft)',
-      paddingTop: 28
+      paddingTop: FIFA_RANKINGS[home] || FIFA_RANKINGS[away] ? 36 : 28
     }
   }, "\u2014"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -2121,7 +2198,7 @@ const PredictView = ({
       alignItems: 'center',
       gap: 6,
       justifyContent: 'center',
-      marginBottom: 8
+      marginBottom: 4
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
@@ -2131,7 +2208,13 @@ const PredictView = ({
   }, away || 'TBD'), /*#__PURE__*/React.createElement(Flag, {
     team: away,
     size: 20
-  })), /*#__PURE__*/React.createElement("input", {
+  })), FIFA_RANKINGS[away] && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-soft)',
+      marginBottom: 4
+    }
+  }, "FIFA #", FIFA_RANKINGS[away]), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: "0",
     max: "20",
@@ -3302,7 +3385,13 @@ const FanPicksView = ({
   }, icon, " ", flag && /*#__PURE__*/React.createElement(Flag, {
     team: flag,
     size: 14
-  }), flag ? flag : label.replace(' Win', '').replace(' 🤝', '')), /*#__PURE__*/React.createElement("span", {
+  }), flag ? flag : label.replace(' Win', '').replace(' 🤝', ''), flag && FIFA_RANKINGS[flag] && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-soft)',
+      fontWeight: 400
+    }
+  }, "#", FIFA_RANKINGS[flag])), /*#__PURE__*/React.createElement("span", {
     className: "mono"
   }, count, " ", /*#__PURE__*/React.createElement("span", {
     style: {
@@ -5928,6 +6017,8 @@ const App = () => {
         const hs = comp.competitors?.find(c => c.homeAway === 'home')?.score;
         const as_ = comp.competitors?.find(c => c.homeAway === 'away')?.score;
         const st = comp.status?.type;
+        const venueData = comp.venue;
+        const venueName = venueData ? `${venueData.fullName || venueData.shortName || ''}${venueData.address?.city ? ', ' + venueData.address.city : ''}`.trim() : '';
         let status = 'scheduled';
         if (st?.state === 'in') {
           const p = comp.status?.period;
@@ -5940,7 +6031,8 @@ const App = () => {
           awayScore: as_,
           status,
           minute: comp.status?.displayClock,
-          kickoff: comp.date
+          kickoff: comp.date,
+          venue: venueName
         };
       }).filter(Boolean);
       // Find our match
@@ -5957,6 +6049,11 @@ const App = () => {
         awayScore: null,
         status: 'scheduled'
       });
+      // Auto-update teams from ESPN if still TBD
+      if (found && FB_ON) {
+        if ((home === 'TBD' || home === '') && found.home && found.home !== 'TBD') updateTeams(found.home, away);
+        if ((away === 'TBD' || away === '') && found.away && found.away !== 'TBD') updateTeams(home === 'TBD' ? found.home : home, found.away);
+      }
       // Check manual override
       if (FB_ON) {
         const snap = await db.collection(NS).doc('manual-live').get().catch(() => null);
@@ -6109,7 +6206,24 @@ const App = () => {
       }).catch(() => {})]);
     }
   };
-  const predLocked = !!(result && result.h != null && result.h !== '') || Date.now() > new Date(MATCH_KICKOFF).getTime();
+  const predLocked = !!(result && result.h != null && result.h !== '') || Date.now() >= LOCK_MS;
+  const [nowTick, setNowTick] = React.useState(Date.now());
+  React.useEffect(() => {
+    if (predLocked) return;
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [predLocked]);
+  const msToLock = Math.max(0, LOCK_MS - nowTick);
+  const secsToLock = Math.floor(msToLock / 1000);
+  const showWarn = !predLocked && msToLock > 0 && msToLock <= WARN_MS;
+  const lockCountdown = (() => {
+    if (secsToLock <= 0) return null;
+    const h = Math.floor(secsToLock / 3600),
+      m = Math.floor(secsToLock % 3600 / 60),
+      s = secsToLock % 60;
+    return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
+  })();
+  const urgentWarn = showWarn && msToLock <= 5 * 60 * 1000; // bright red at 5 min
   const myPred = predictions[currentUser] || {};
   if (!ready) return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -6152,7 +6266,37 @@ const App = () => {
   }, /*#__PURE__*/React.createElement(LiveMatchBanner, {
     liveData: liveData,
     loading: liveLoading
-  }), /*#__PURE__*/React.createElement("div", {
+  }), showWarn && !predLocked && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: urgentWarn ? '#c0392b' : '#d4890a',
+      color: 'white',
+      padding: '8px 20px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      fontSize: 13,
+      fontWeight: 700,
+      flexWrap: 'wrap',
+      textAlign: 'center',
+      animation: urgentWarn ? 'pulse 1s ease-in-out infinite' : 'none'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 16
+    }
+  }, urgentWarn ? '🚨' : '⏰'), /*#__PURE__*/React.createElement("span", null, urgentWarn ? 'HURRY! ' : '', "Predictions lock in ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'JetBrains Mono,monospace',
+      fontSize: 15,
+      letterSpacing: 1
+    }
+  }, lockCountdown), " \u2014 ", urgentWarn ? 'submit NOW!' : 'make sure yours is saved!'), !urgentWarn && /*#__PURE__*/React.createElement("span", {
+    style: {
+      opacity: .7,
+      fontSize: 11
+    }
+  }, "Locks 10 min before kickoff")), /*#__PURE__*/React.createElement("div", {
     style: {
       background: 'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)',
       color: 'white',
