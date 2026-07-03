@@ -1739,7 +1739,7 @@ const PredictView = ({
   home,
   away,
   locked,
-  bonusPick = {},
+  bonusPick = null,
   onSaveBonusPick,
   bonusAnswers = {},
   liveGoals = {},
@@ -1780,6 +1780,7 @@ const PredictView = ({
     });
   }, [prediction]);
   useEffect(() => {
+    if (bonusPick === null) return;
     setScorer(bonusPick.scorer || '');
     setGoalTime(bonusPick.goalTime || '');
     setFirstTeam(bonusPick.firstTeam || '');
@@ -6288,6 +6289,7 @@ const App = () => {
   })();
   const urgentWarn = showWarn && msToLock <= 5 * 60 * 1000; // bright red at 5 min
   const myPred = useMemo(() => predictions[currentUser] ?? null, [predictions, currentUser]);
+  const myBonusPick = useMemo(() => bonusPicks[currentUser] ?? null, [bonusPicks, currentUser]);
   if (!ready) return /*#__PURE__*/React.createElement("div", {
     style: {
       minHeight: '100vh',
@@ -6499,7 +6501,7 @@ const App = () => {
     home: home,
     away: away,
     locked: predLocked,
-    bonusPick: bonusPicks[currentUser] || {},
+    bonusPick: myBonusPick,
     onSaveBonusPick: saveBonusPick,
     bonusAnswers: bonusAnswers,
     liveGoals: liveGoals,
