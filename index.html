@@ -1168,6 +1168,85 @@ const PredictView = ({
     className: "card",
     style: {
       marginBottom: 16,
+      padding: 14,
+      background: 'linear-gradient(135deg,rgba(27,94,63,.04) 0%,var(--paper) 60%)',
+      borderColor: 'var(--forest)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: 'var(--forest)',
+      marginBottom: 8,
+      letterSpacing: '.04em'
+    }
+  }, "HOW POINTS WORK"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '6px 16px',
+      fontSize: 12,
+      color: 'var(--ink)'
+    }
+  }, [[`✅ Correct result`, `${SCORE_CORRECT_RESULT} pt`], [`⚽ Each correct goal`, `${SCORE_PER_GOAL} pt`], [`🎯 Exact score bonus`, `${SCORE_EXACT_BONUS} pt`], [`🔄 Correct draw`, `${SCORE_CORRECT_DRAW} pts`]].map(([l, p]) => /*#__PURE__*/React.createElement("div", {
+    key: l,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement("span", null, l), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 800,
+      color: 'var(--forest)',
+      fontFamily: 'JetBrains Mono,monospace'
+    }
+  }, p)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8,
+      paddingTop: 8,
+      borderTop: '1px solid var(--line)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: 'var(--amber)',
+      marginBottom: 6
+    }
+  }, "\uD83C\uDFC6 Quarter-Final Advancement Bonus \u2014 predict the correct winner"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '4px 14px',
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--ink-soft)'
+    }
+  }, "QF Winner"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 800,
+      color: 'var(--amber)',
+      fontFamily: 'JetBrains Mono,monospace'
+    }
+  }, "+", SCORE_QF_WINNER, " pts")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8,
+      fontSize: 11,
+      color: 'var(--ink-soft)'
+    }
+  }, "Draw predictions require a ", /*#__PURE__*/React.createElement("strong", null, "penalty winner pick"), ". Bonus picks (Top Scorer, First Goal Time, First Scoring Team) are worth ", /*#__PURE__*/React.createElement("strong", null, SCORE_BONUS_SCORER, " pts each"), " \u2014 enter them in the \u2B50 Bonus tab.")), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 16,
       background: 'linear-gradient(135deg,#1a1a2e,#16213e)',
       border: 'none',
       color: 'white',
@@ -1422,56 +1501,7 @@ const PredictView = ({
       fontSize: 12,
       color: 'var(--ink-soft)'
     }
-  }, "pts")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 16,
-      borderTop: '1px solid var(--line-soft)',
-      paddingTop: 12
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "micro-caps",
-    style: {
-      marginBottom: 8
-    }
-  }, "Scoring Rules"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'grid',
-      gridTemplateColumns: 'auto 1fr',
-      gap: '5px 12px',
-      fontSize: 12,
-      color: 'var(--ink-soft)'
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "mono",
-    style: {
-      fontWeight: 700,
-      color: 'var(--forest)'
-    }
-  }, "+", SCORE_CORRECT_RESULT), /*#__PURE__*/React.createElement("span", null, "\u2705 Correct result"), /*#__PURE__*/React.createElement("span", {
-    className: "mono",
-    style: {
-      fontWeight: 700,
-      color: 'var(--forest)'
-    }
-  }, "+", SCORE_PER_GOAL), /*#__PURE__*/React.createElement("span", null, "\u26BD Each correct goal"), /*#__PURE__*/React.createElement("span", {
-    className: "mono",
-    style: {
-      fontWeight: 700,
-      color: 'var(--forest)'
-    }
-  }, "+", SCORE_EXACT_BONUS), /*#__PURE__*/React.createElement("span", null, "\uD83C\uDFAF Exact score bonus"), /*#__PURE__*/React.createElement("span", {
-    className: "mono",
-    style: {
-      fontWeight: 700,
-      color: 'var(--amber)'
-    }
-  }, "+", SCORE_CORRECT_DRAW), /*#__PURE__*/React.createElement("span", null, "\uD83D\uDD04 Correct draw (replaces result pts)"), /*#__PURE__*/React.createElement("span", {
-    className: "mono",
-    style: {
-      fontWeight: 700,
-      color: 'var(--burgundy)'
-    }
-  }, "+", SCORE_QF_WINNER), /*#__PURE__*/React.createElement("span", null, "\uD83C\uDFC6 Correct QF advancing team")))));
+  }, "pts"))));
 };
 
 // ── LEADERBOARD VIEW ──────────────────────────────────────────────
@@ -1624,135 +1654,201 @@ const LeaderboardView = ({
       flexDirection: 'column',
       gap: 8
     }
-  }, scores.map((s, i) => /*#__PURE__*/React.createElement("div", {
-    key: s.name,
-    className: "card fadein",
-    style: {
-      padding: '14px 18px',
-      borderLeft: i === 0 ? '3px solid var(--amber)' : i === 1 ? '3px solid #9b9087' : i === 2 ? '3px solid #8b6e4e' : '3px solid transparent'
+  }, scores.map((s, i) => {
+    const pred = predictions[s.name] || {};
+    const aRes = parseInt(result.h) > parseInt(result.a) ? 'H' : parseInt(result.a) > parseInt(result.h) ? 'A' : 'D';
+    const pRes = parseInt(pred.h) > parseInt(pred.a) ? 'H' : parseInt(pred.a) > parseInt(pred.h) ? 'A' : 'D';
+    const isDraw = aRes === 'D';
+    // Build pts breakdown rows
+    const breakdown = [];
+    if (s.hasPred) {
+      if (s.correctResult) breakdown.push({
+        label: isDraw ? '✅ Correct draw' : '✅ Correct result',
+        pts: isDraw ? SCORE_CORRECT_DRAW : SCORE_CORRECT_RESULT,
+        color: 'var(--forest)'
+      });
+      const hGoal = parseInt(pred.h) === parseInt(result.h);
+      const aGoal = parseInt(pred.a) === parseInt(result.a);
+      if (hGoal) breakdown.push({
+        label: `⚽ ${home} goals correct`,
+        pts: SCORE_PER_GOAL,
+        color: 'var(--ink-soft)'
+      });
+      if (aGoal) breakdown.push({
+        label: `⚽ ${away} goals correct`,
+        pts: SCORE_PER_GOAL,
+        color: 'var(--ink-soft)'
+      });
+      if (s.exactScore) breakdown.push({
+        label: '🎯 Exact score bonus',
+        pts: SCORE_EXACT_BONUS,
+        color: 'var(--amber)'
+      });
+      if (s.winnerCorrect) breakdown.push({
+        label: `🏆 ${isDraw ? (pred.pk || '?') + ' on pens' : pred.h > pred.a ? home : away} winner correct`,
+        pts: SCORE_QF_WINNER,
+        color: '#2980b9'
+      });
+      if (s.bonusPts > 0) {
+        const bp = bonusPicks[s.name] || {};
+        const parseTime = t => {
+          if (!t) return null;
+          const [m, sec] = (t || '').split(':').map(Number);
+          return isNaN(m) || isNaN(sec) ? null : m * 60 + sec;
+        };
+        const scorerOk = bonusAnswers.scorer && bp.scorer && bonusAnswers.scorer.toLowerCase().trim() === bp.scorer.toLowerCase().trim();
+        const teamOk = bonusAnswers.firstTeam && bp.firstTeam && bonusAnswers.firstTeam === bp.firstTeam;
+        const aTs = parseTime(bonusAnswers.goalTime),
+          mTs = parseTime(bp.goalTime);
+        const timeDiff = aTs != null && mTs != null ? Math.abs(aTs - mTs) : null;
+        if (scorerOk) breakdown.push({
+          label: `⚽ Scorer: ${bp.scorer}`,
+          pts: SCORE_BONUS_SCORER,
+          color: 'var(--forest)'
+        });
+        if (teamOk) breakdown.push({
+          label: `🏳️ First goal team: ${bp.firstTeam}`,
+          pts: SCORE_BONUS_GOAL_TEAM,
+          color: 'var(--forest)'
+        });
+        if (timeDiff !== null && timeDiff <= 30) breakdown.push({
+          label: `⏱ Goal time ${bp.goalTime} (±${timeDiff}s)`,
+          pts: SCORE_BONUS_GOAL_TIME,
+          color: 'var(--forest)'
+        });
+      }
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 12
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 20,
-      minWidth: 28,
-      textAlign: 'center'
-    }
-  }, ['🥇', '🥈', '🥉'][i] || /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 14,
-      color: 'var(--ink-soft)',
-      fontWeight: 600
-    }
-  }, i + 1)), /*#__PURE__*/React.createElement(Avatar, {
-    name: s.name,
-    size: 36
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      minWidth: 0
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 700,
-      fontSize: 14,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6,
-      flexWrap: 'wrap'
-    }
-  }, s.name, s.name === currentUser && /*#__PURE__*/React.createElement("span", {
-    className: "pill",
-    style: {
-      fontSize: 9
-    }
-  }, "you"), s.exactScore && /*#__PURE__*/React.createElement("span", {
-    className: "pill",
-    style: {
-      fontSize: 9,
-      background: 'rgba(159,27,27,.1)',
-      color: 'var(--burgundy)'
-    }
-  }, "\uD83C\uDFAF exact"), s.winnerCorrect && /*#__PURE__*/React.createElement("span", {
-    className: "pill",
-    style: {
-      fontSize: 9,
-      background: 'rgba(41,128,185,.1)',
-      color: '#2980b9'
-    }
-  }, "\uD83C\uDFC5 winner"), s.bonusPts > 0 && /*#__PURE__*/React.createElement("span", {
-    className: "pill",
-    style: {
-      fontSize: 9,
-      background: 'rgba(27,67,50,.1)',
-      color: 'var(--forest)'
-    }
-  }, "\u2B50 bonus")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: 'var(--ink-soft)',
-      marginTop: 3,
-      display: 'flex',
-      gap: 10,
-      flexWrap: 'wrap'
-    }
-  }, s.hasPred && /*#__PURE__*/React.createElement("span", null, "Predicted: ", /*#__PURE__*/React.createElement("span", {
-    className: "mono",
-    style: {
-      fontWeight: 700
-    }
-  }, predictions[s.name].h, "\u2013", predictions[s.name].a)), /*#__PURE__*/React.createElement("span", null, "Match: ", /*#__PURE__*/React.createElement("span", {
-    className: "mono",
-    style: {
-      fontWeight: 700
-    }
-  }, s.matchPts), "pts"), s.bonusPts > 0 && /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: 'var(--forest)'
-    }
-  }, "Bonus: ", /*#__PURE__*/React.createElement("span", {
-    className: "mono",
-    style: {
-      fontWeight: 700
-    }
-  }, "+", s.bonusPts))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: 3,
-      background: 'var(--cream2)',
-      borderRadius: 2,
-      marginTop: 8,
-      overflow: 'hidden'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: `${s.total / maxScore * 100}%`,
-      height: '100%',
-      background: i === 0 ? 'var(--amber)' : 'var(--burgundy)',
-      borderRadius: 2
-    }
-  }))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: 'right',
-      flexShrink: 0
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mono",
-    style: {
-      fontSize: 28,
-      fontWeight: 800,
-      color: i === 0 ? 'var(--amber)' : i < 3 ? 'var(--ink)' : 'var(--burgundy)'
-    }
-  }, s.total), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      color: 'var(--ink-soft)'
-    }
-  }, "pts")))))));
+    return /*#__PURE__*/React.createElement("div", {
+      key: s.name,
+      className: "card fadein",
+      style: {
+        padding: '14px 18px',
+        borderLeft: i === 0 ? '3px solid var(--amber)' : i === 1 ? '3px solid #9b9087' : i === 2 ? '3px solid #8b6e4e' : '3px solid transparent'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 20,
+        minWidth: 28,
+        textAlign: 'center'
+      }
+    }, ['🥇', '🥈', '🥉'][i] || /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 14,
+        color: 'var(--ink-soft)',
+        fontWeight: 600
+      }
+    }, i + 1)), /*#__PURE__*/React.createElement(Avatar, {
+      name: s.name,
+      size: 36
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 700,
+        fontSize: 14,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        flexWrap: 'wrap'
+      }
+    }, s.name, s.name === currentUser && /*#__PURE__*/React.createElement("span", {
+      className: "pill",
+      style: {
+        fontSize: 9
+      }
+    }, "you"), s.exactScore && /*#__PURE__*/React.createElement("span", {
+      className: "pill",
+      style: {
+        fontSize: 9,
+        background: 'rgba(214,137,42,.12)',
+        color: 'var(--amber)'
+      }
+    }, "\uD83C\uDFAF exact"), s.winnerCorrect && /*#__PURE__*/React.createElement("span", {
+      className: "pill",
+      style: {
+        fontSize: 9,
+        background: 'rgba(41,128,185,.1)',
+        color: '#2980b9'
+      }
+    }, "\uD83C\uDFC5 ", isDraw ? 'pens' : 'winner'), s.bonusPts > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "pill",
+      style: {
+        fontSize: 9,
+        background: 'rgba(27,67,50,.1)',
+        color: 'var(--forest)'
+      }
+    }, "\u2B50 bonus")), s.hasPred && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 5,
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '2px 12px',
+        fontSize: 11,
+        color: 'var(--ink-soft)',
+        alignItems: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("span", null, "Predicted: ", /*#__PURE__*/React.createElement("span", {
+      className: "mono",
+      style: {
+        fontWeight: 700,
+        color: 'var(--ink)'
+      }
+    }, pred.h, "\u2013", pred.a, pred.pk && isDraw ? ' (' + pred.pk + ' pens)' : '')), breakdown.map((b, bi) => /*#__PURE__*/React.createElement("span", {
+      key: bi,
+      style: {
+        color: b.color,
+        fontWeight: 600
+      }
+    }, "+", b.pts, " ", b.label))), !s.hasPred && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-soft)',
+        marginTop: 3,
+        fontStyle: 'italic'
+      }
+    }, "No prediction entered"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        height: 3,
+        background: 'var(--cream2)',
+        borderRadius: 2,
+        marginTop: 8,
+        overflow: 'hidden'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: `${s.total / maxScore * 100}%`,
+        height: '100%',
+        background: i === 0 ? 'var(--amber)' : 'var(--burgundy)',
+        borderRadius: 2
+      }
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'right',
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "mono",
+      style: {
+        fontSize: 28,
+        fontWeight: 800,
+        color: i === 0 ? 'var(--amber)' : i < 3 ? 'var(--ink)' : 'var(--burgundy)'
+      }
+    }, s.total), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: 'var(--ink-soft)'
+      }
+    }, "pts"))));
+  })));
 };
 
 // ── FAN PICKS VIEW ────────────────────────────────────────────────
@@ -2547,7 +2643,8 @@ const AdminView = ({
   currentUser: adminUser,
   bypassAuth = false,
   manualLiveData = {},
-  onSaveManualLive
+  onSaveManualLive,
+  liveData = null
 }) => {
   const [adminPw, setAdminPw] = useState('');
   const [authed, setAuthed] = useState(bypassAuth);
@@ -2556,6 +2653,7 @@ const AdminView = ({
   const [ra, setRa] = useState(result?.a != null ? String(result.a) : '');
   const [pkWinner, setPkWinner] = useState(result?.pkWinner || '');
   const [saving, setSaving] = useState(false);
+  const [espnImporting, setEspnImporting] = useState(false);
   const [bScorer, setBScorer] = useState(bonusAnswers.scorer || '');
   const [bGoalTime, setBGoalTime] = useState(bonusAnswers.goalTime || '');
   const [bFirstTeam, setBFirstTeam] = useState(bonusAnswers.firstTeam || '');
@@ -2760,7 +2858,52 @@ const AdminView = ({
       fontWeight: 600,
       color: 'var(--forest)'
     }
-  }, "\u2705 Current result: ", home, " ", result.h, " \u2013 ", result.a, " ", away, result.pkWinner ? ' (' + result.pkWinner + ' wins on pens)' : ''), /*#__PURE__*/React.createElement("div", {
+  }, "\u2705 Current result: ", home, " ", result.h, " \u2013 ", result.a, " ", away, result.pkWinner ? ' (' + result.pkWinner + ' wins on pens)' : ''), liveData && liveData.homeScore != null && liveData.status !== 'scheduled' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16,
+      padding: '10px 14px',
+      background: 'rgba(41,128,185,.06)',
+      borderRadius: 6,
+      border: '1px solid rgba(41,128,185,.2)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: '#2980b9',
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCE1 ESPN live: ", /*#__PURE__*/React.createElement("span", {
+    className: "mono",
+    style: {
+      fontWeight: 800
+    }
+  }, liveData.homeScore, " \u2013 ", liveData.awayScore), " (", liveData.status, liveData.minute ? ` ${liveData.minute}` : '', ")"), /*#__PURE__*/React.createElement("button", {
+    onClick: async () => {
+      setEspnImporting(true);
+      setRh(String(liveData.homeScore));
+      setRa(String(liveData.awayScore));
+      setPkWinner('');
+      setEspnImporting(false);
+    },
+    disabled: espnImporting,
+    style: {
+      marginLeft: 'auto',
+      background: '#2980b9',
+      color: 'white',
+      border: 'none',
+      borderRadius: 5,
+      padding: '6px 14px',
+      fontSize: 12,
+      fontWeight: 700,
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      flexShrink: 0
+    }
+  }, "\u2B07\uFE0F Import Score")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -4244,7 +4387,8 @@ const App = () => {
     currentUser: currentUser,
     bypassAuth: isAdmin,
     manualLiveData: manualLive,
-    onSaveManualLive: saveManualLive
+    onSaveManualLive: saveManualLive,
+    liveData: liveData
   })), /*#__PURE__*/React.createElement("div", {
     className: "sidebar-right"
   }, /*#__PURE__*/React.createElement(RightSidebar, {
