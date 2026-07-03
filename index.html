@@ -1243,6 +1243,149 @@ const RightSidebar = ({
   })))));
 };
 
+// ── LIVE GOAL RACE (LEFT SIDEBAR COMPONENT) ──────────────────────
+const LiveGoalRace = ({
+  liveGoals,
+  predictions,
+  home,
+  away
+}) => {
+  if (!liveGoals || !liveGoals.goals || liveGoals.goals.length === 0) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 16,
+      background: 'var(--cream2)',
+      borderRadius: 8,
+      padding: '10px 12px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      letterSpacing: 1,
+      color: 'var(--forest)',
+      marginBottom: 8,
+      textTransform: 'uppercase'
+    }
+  }, "\u26A1 Live Goal Race"), liveGoals.goals.map((g, gi) => {
+    const actualSec = (() => {
+      const [mm, ss] = (g.time || '0:00').split(':');
+      return (+mm || 0) * 60 + (+ss || 0);
+    })();
+    const rows = Object.entries(predictions || {}).map(([name, pd]) => {
+      let predArr = [];
+      try {
+        const p = typeof pd === 'string' ? JSON.parse(pd) : pd;
+        const isHome = g.team === home;
+        predArr = isHome ? p.hGoals || [] : p.aGoals || [];
+      } catch (e) {}
+      const predSec = predArr[gi] ? (() => {
+        const [mm, ss] = (predArr[gi].time || '').split(':');
+        return mm ? +mm * 60 + (+ss || 0) : null;
+      })() : null;
+      const diff = predSec != null ? Math.abs(predSec - actualSec) : null;
+      const pts = diff == null ? 0 : diff <= 300 ? SCORE_GOAL_TIME_5 : diff <= 600 ? SCORE_GOAL_TIME_10 : 0;
+      return {
+        name,
+        diff,
+        pts
+      };
+    }).filter(r => r.diff != null).sort((a, b) => a.diff - b.diff);
+    if (rows.length === 0) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      key: gi,
+      style: {
+        marginBottom: 10
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        fontWeight: 600,
+        color: 'var(--ink)',
+        marginBottom: 4
+      }
+    }, "Goal ", gi + 1, ": ", g.scorer || '?', " (", g.team || '?', ") @ ", g.time), rows.slice(0, 5).map((r, i) => /*#__PURE__*/React.createElement("div", {
+      key: r.name,
+      style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        fontSize: 11,
+        padding: '2px 0',
+        borderBottom: '1px solid var(--cream3)'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: i === 0 ? 700 : 400
+      }
+    }, i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ', " ", r.name), /*#__PURE__*/React.createElement("span", {
+      className: "mono",
+      style: {
+        color: r.pts > 0 ? 'var(--forest)' : 'var(--ink-soft)'
+      }
+    }, "\xB1", Math.round(r.diff / 60), "m ", r.pts > 0 ? `+${r.pts}pts` : ''))));
+  }));
+};
+
+// ── GOAL TOAST ────────────────────────────────────────────────────
+const GoalToast = ({
+  toast,
+  onDismiss
+}) => {
+  if (!toast) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      bottom: 24,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 9999,
+      background: '#1a472a',
+      color: '#fff',
+      borderRadius: 12,
+      padding: '14px 22px',
+      boxShadow: '0 4px 24px rgba(0,0,0,.35)',
+      maxWidth: 380,
+      width: '90%',
+      textAlign: 'center',
+      animation: 'slideUp .35s ease'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 18,
+      fontWeight: 700,
+      marginBottom: 4
+    }
+  }, "\u26BD GOAL!"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15,
+      fontWeight: 600
+    }
+  }, toast.scorer || 'Unknown', " (", toast.team, ")"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: '#a8d5a2',
+      marginBottom: 6
+    }
+  }, "@ ", toast.time), toast.closest && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: '#c8e6c9'
+    }
+  }, "Closest prediction: ", /*#__PURE__*/React.createElement("strong", null, toast.closest)), /*#__PURE__*/React.createElement("button", {
+    onClick: onDismiss,
+    style: {
+      marginTop: 10,
+      background: 'rgba(255,255,255,.15)',
+      border: 'none',
+      borderRadius: 6,
+      color: '#fff',
+      padding: '4px 14px',
+      cursor: 'pointer',
+      fontSize: 12
+    }
+  }, "\u2715 Dismiss"));
+};
+
 // ── PREDICT VIEW (CENTER) ─────────────────────────────────────────
 const PredictView = ({
   currentUser,
@@ -5063,9 +5206,6 @@ const App = () => {
   return /*#__PURE__*/React.createElement("div", {
     className: "app"
   }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement(GoalToast, {
-    toast: goalToast,
-    onDismiss: () => setGoalToast(null)
-  }), /*#__PURE__*/React.createElement(GoalToast, {
     toast: goalToast,
     onDismiss: () => setGoalToast(null)
   }), /*#__PURE__*/React.createElement("div", {
