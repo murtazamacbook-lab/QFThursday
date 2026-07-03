@@ -5839,8 +5839,22 @@ const App = () => {
   const [result, setResult] = useState({});
   const [bonusAnswers, setBonusAnswers] = useState({}); // {scorer,goalTime,firstTeam}
   const [bonusPicks, setBonusPicks] = useState({}); // name → {scorer,goalTime,firstTeam}
-  const [home, setHome] = useState('TBD');
-  const [away, setAway] = useState('TBD');
+  const [home, setHome] = useState(() => {
+    try {
+      const t = lsGet('teams');
+      return t?.home || 'TBD';
+    } catch {
+      return 'TBD';
+    }
+  });
+  const [away, setAway] = useState(() => {
+    try {
+      const t = lsGet('teams');
+      return t?.away || 'TBD';
+    } catch {
+      return 'TBD';
+    }
+  });
   const [liveData, setLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [view, setView] = useState('predict');
@@ -6070,11 +6084,7 @@ const App = () => {
         awayScore: null,
         status: 'scheduled'
       });
-      // Auto-update teams from ESPN if still TBD
-      if (found && FB_ON) {
-        if ((home === 'TBD' || home === '') && found.home && found.home !== 'TBD') updateTeams(found.home, away);
-        if ((away === 'TBD' || away === '') && found.away && found.away !== 'TBD') updateTeams(home === 'TBD' ? found.home : home, found.away);
-      }
+      // Note: teams are admin-managed — ESPN never overwrites them
       // Check manual override
       if (FB_ON) {
         const snap = await db.collection(NS).doc('manual-live').get().catch(() => null);
