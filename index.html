@@ -2513,14 +2513,15 @@ const LeaderboardView = ({
       const s = computeScore(predictions[name] || {}, result, home, away);
       const bonusPts = computeBonusPts(bonusPicks[name] || {}, bonusAnswers);
       const detailPts = computeGoalDetailPts(predictions[name] || {}, liveGoals);
+      const grandTotal = s.total + bonusPts + detailPts.total;
       return {
         name,
+        ...s,
         matchPts: s.total,
         bonusPts,
         detailPts: detailPts.total,
         detailItems: detailPts.items,
-        total: s.total + bonusPts + detailPts.total,
-        ...s,
+        total: grandTotal,
         hasPred: !!(predictions[name] && predictions[name].h != null && predictions[name].h !== '')
       };
     }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
@@ -2698,6 +2699,13 @@ const LeaderboardView = ({
           pts: SCORE_BONUS_GOAL_TIME,
           color: 'var(--forest)'
         });
+      }
+      if (s.detailItems && s.detailItems.length > 0) {
+        s.detailItems.forEach(item => breakdown.push({
+          label: item.label,
+          pts: item.pts,
+          color: '#2980b9'
+        }));
       }
     }
     return /*#__PURE__*/React.createElement("div", {
