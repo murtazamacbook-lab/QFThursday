@@ -1,0 +1,2932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QF Thursday — Prediction Pool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icons@7.2.3/css/flag-icons.min.css" />
+  <!-- Firebase 8 -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <!-- React 18 -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <!-- Babel -->
+  </head>
+<body style="margin:0;background:#FBF8F0">
+  <div id="root" style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#555">Loading…</div>
+
+  <script>
+    const FIREBASE_CONFIG = {
+      apiKey:            "AIzaSyCOe6NyzA1DI5GrSyjhHHtWywJgq4Pd5us",
+      authDomain:        "wc2026-6be85.firebaseapp.com",
+      projectId:         "wc2026-6be85",
+      storageBucket:     "wc2026-6be85.firebasestorage.app",
+      messagingSenderId: "754123827144",
+      appId:             "1:754123827144:web:19acfa7fe483e7fbd9c2fd"
+    };
+    window.__COMP_NAME   = 'QF Thursday — July 9';
+    window.__COMP_ID     = 'qft';           // Firestore namespace: qft/
+    window.__ADMIN_PW    = 'qftadmin2026';
+    window.__RAPID_KEY   = '416399dec9msh8c452cfd8da4c3ep1c5513jsncb6a197ca308';
+
+    const _fbConfigured = !FIREBASE_CONFIG.apiKey.startsWith('REPLACE_');
+    if (_fbConfigured && !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    window.__db = _fbConfigured ? firebase.firestore() : null;
+    window.__fbConfigured = _fbConfigured;
+  </script>
+
+  <script>
+'use strict';
+
+const {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef
+} = React;
+const db = window.__db;
+const FB_ON = window.__fbConfigured;
+const COMP_NAME = window.__COMP_NAME || 'QF Thursday';
+const NS = window.__COMP_ID || 'qft';
+const DEFAULT_ADMIN_PW = window.__ADMIN_PW || 'qftadmin2026';
+
+// ── MATCH CONFIG ─────────────────────────────────────────────────
+// July 9, 2026 — Quarter-Final (teams TBD from bracket, update when known)
+const MATCH = {
+  id: 'qf-jul9',
+  kickoff: '2026-07-09T16:00:00-07:00',
+  // 4 PM PDT (confirm actual time)
+  homeTeam: 'TBD',
+  // update when bracket is set
+  awayTeam: 'TBD',
+  label: 'Quarter-Final · Thu Jul 9'
+};
+
+// ── SCORING RULES ────────────────────────────────────────────────
+// ✅ Correct result: 5 pts
+// ⚽ Each correct goal: 5 pts
+// 🎯 Exact score bonus: 5 pts
+// 🔄 Correct draw: 15 pts (instead of result pts)
+// 🏆 Correct advancing team (QF winner): 20 pts
+const SCORE_CORRECT_RESULT = 5;
+const SCORE_PER_GOAL = 5;
+const SCORE_EXACT_BONUS = 5;
+const SCORE_CORRECT_DRAW = 15;
+const SCORE_QF_WINNER = 20;
+function computeScore(pred, actual) {
+  // pred/actual: {h, a, pk?}  — pk = penalty shootout winner name
+  if (!pred || pred.h == null || pred.h === '' || !actual || actual.h == null || actual.h === '') return 0;
+  const pH = parseInt(pred.h),
+    pA = parseInt(pred.a);
+  const aH = parseInt(actual.h),
+    aA = parseInt(actual.a);
+  if (isNaN(pH) || isNaN(pA) || isNaN(aH) || isNaN(aA)) return 0;
+  let pts = 0;
+  const aRes = aH > aA ? 'H' : aA > aH ? 'A' : 'D';
+  const pRes = pH > pA ? 'H' : pA > pH ? 'A' : 'D';
+
+  // Correct result (or draw)
+  if (aRes === pRes) {
+    pts += aRes === 'D' ? SCORE_CORRECT_DRAW : SCORE_CORRECT_RESULT;
+  }
+  // Per-goal accuracy
+  if (pH === aH) pts += SCORE_PER_GOAL;
+  if (pA === aA) pts += SCORE_PER_GOAL;
+  // Exact score bonus
+  if (pH === aH && pA === aA) pts += SCORE_EXACT_BONUS;
+  // QF winner (advancing team)
+  const actualWinner = aH > aA ? MATCH.homeTeam : aA > aH ? MATCH.awayTeam : actual.pkWinner || null;
+  const predWinner = pH > pA ? MATCH.homeTeam : pA > pH ? MATCH.awayTeam : pred.pk || null;
+  if (actualWinner && predWinner && actualWinner === predWinner) pts += SCORE_QF_WINNER;
+  return pts;
+}
+
+// ── TEAM FLAGS ───────────────────────────────────────────────────
+const TEAM_FLAGS = {
+  'Mexico': 'mx',
+  'South Africa': 'za',
+  'South Korea': 'kr',
+  'Czech Republic': 'cz',
+  'Canada': 'ca',
+  'Bosnia & Herz.': 'ba',
+  'Qatar': 'qa',
+  'Switzerland': 'ch',
+  'Brazil': 'br',
+  'Morocco': 'ma',
+  'Haiti': 'ht',
+  'Scotland': 'gb-sct',
+  'United States': 'us',
+  'Paraguay': 'py',
+  'Australia': 'au',
+  'Turkiye': 'tr',
+  'Germany': 'de',
+  'Curacao': 'cw',
+  'Ivory Coast': 'ci',
+  'Ecuador': 'ec',
+  'Netherlands': 'nl',
+  'Japan': 'jp',
+  'Sweden': 'se',
+  'Tunisia': 'tn',
+  'Belgium': 'be',
+  'Egypt': 'eg',
+  'Iran': 'ir',
+  'New Zealand': 'nz',
+  'Spain': 'es',
+  'Cape Verde': 'cv',
+  'Saudi Arabia': 'sa',
+  'Uruguay': 'uy',
+  'France': 'fr',
+  'Senegal': 'sn',
+  'Iraq': 'iq',
+  'Norway': 'no',
+  'Argentina': 'ar',
+  'Algeria': 'dz',
+  'Austria': 'at',
+  'Jordan': 'jo',
+  'Portugal': 'pt',
+  'DR Congo': 'cd',
+  'Uzbekistan': 'uz',
+  'Colombia': 'co',
+  'England': 'gb-eng',
+  'Croatia': 'hr',
+  'Ghana': 'gh',
+  'Panama': 'pa'
+};
+const ALL_TEAMS = Object.keys(TEAM_FLAGS);
+const API_TEAM_MAP = {
+  'Korea Republic': 'South Korea',
+  'USA': 'United States',
+  "Côte d'Ivoire": 'Ivory Coast',
+  "Cote d'Ivoire": 'Ivory Coast',
+  'Cabo Verde': 'Cape Verde',
+  'Türkiye': 'Turkiye',
+  'Turkey': 'Turkiye',
+  'Bosnia and Herzegovina': 'Bosnia & Herz.',
+  'Bosnia': 'Bosnia & Herz.',
+  'Congo DR': 'DR Congo',
+  'IR Iran': 'Iran',
+  'Curaçao': 'Curacao',
+  'Czechia': 'Czech Republic'
+};
+const normTeam = n => n ? API_TEAM_MAP[n] || n : n;
+
+// ── SHA-256 PIN HASHING ──────────────────────────────────────────
+const hashPin = async (pin, username = '') => {
+  try {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(username + '::' + String(pin) + '::qft'));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    return String(pin);
+  }
+};
+const isHashed = s => typeof s === 'string' && s.length === 64 && /^[0-9a-f]+$/.test(s);
+
+// ── STORAGE ──────────────────────────────────────────────────────
+const lsGet = key => {
+  try {
+    const v = localStorage.getItem(`qft_${key}`);
+    return v ? JSON.parse(v) : null;
+  } catch {
+    return null;
+  }
+};
+const lsSet = (key, val) => {
+  try {
+    localStorage.setItem(`qft_${key}`, JSON.stringify(val));
+  } catch {}
+};
+const fbTimeout = (p, ms = 8000) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
+const storage = {
+  async set(key, value) {
+    lsSet(key, value);
+    if (FB_ON) fbTimeout(db.collection(NS).doc(key).set({
+      value: JSON.stringify(value)
+    })).catch(() => {});
+  },
+  async get(key) {
+    const cached = lsGet(key);
+    if (!FB_ON) return cached;
+    try {
+      const snap = await fbTimeout(db.collection(NS).doc(key).get());
+      if (snap.exists) {
+        const val = JSON.parse(snap.data().value);
+        lsSet(key, val);
+        return val;
+      }
+    } catch {}
+    return cached;
+  }
+};
+
+// ── ESPN LIVE FETCH ───────────────────────────────────────────────
+const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world';
+const espnMatchToObj = comp => {
+  if (!comp) return null;
+  const home = normTeam(comp.competitors?.find(c => c.homeAway === 'home')?.team?.displayName || '');
+  const away = normTeam(comp.competitors?.find(c => c.homeAway === 'away')?.team?.displayName || '');
+  const hScore = comp.competitors?.find(c => c.homeAway === 'home')?.score;
+  const aScore = comp.competitors?.find(c => c.homeAway === 'away')?.score;
+  const statusType = comp.status?.type?.name || '';
+  const statusState = comp.status?.type?.state || '';
+  const clock = comp.status?.displayClock;
+  const period = comp.status?.period;
+  let status = 'scheduled';
+  if (statusState === 'in') {
+    status = period === 2 ? '2H' : period >= 3 ? 'ET' : '1H';
+    if (comp.status?.type?.shortDetail?.toLowerCase().includes('halftime')) status = 'HT';
+  } else if (statusType.includes('Final') || statusState === 'post') {
+    status = 'FT';
+  }
+  return {
+    home,
+    away,
+    homeScore: hScore,
+    awayScore: aScore,
+    status,
+    minute: clock,
+    kickoff: comp.date
+  };
+};
+
+// ── UTILITY ──────────────────────────────────────────────────────
+const formatMatchTime = raw => {
+  if (!raw) return {
+    time: 'TBD',
+    date: '',
+    local: false
+  };
+  const d = new Date(raw);
+  if (isNaN(d)) return {
+    time: raw,
+    date: '',
+    local: false
+  };
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const isTomorrow = d.toDateString() === new Date(now.getTime() + 86400000).toDateString();
+  const timeStr = d.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const dateLabel = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : d.toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  });
+  return {
+    time: timeStr,
+    date: dateLabel,
+    local: true
+  };
+};
+
+// ── CSS ───────────────────────────────────────────────────────────
+const CSS = `
+    :root {
+      --ink:#1a1a1a; --ink-soft:#6b6b6b; --paper:#FBF8F0; --cream2:#F3EFE5;
+      --line:#D8D1C4; --line-soft:#EAE5DA; --amber:#D6892A; --forest:#1B4332;
+      --burgundy:#9F1B1B;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--paper);color:var(--ink);font-family:'DM Sans',sans-serif}
+    .display{font-family:'Fraunces',serif}
+    .mono{font-family:'JetBrains Mono',monospace}
+    .micro-caps{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+    .card{background:white;border:1px solid var(--line);border-radius:10px;padding:16px}
+    .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:var(--cream2);color:var(--ink-soft)}
+    .pill-success{background:rgba(27,67,50,.1);color:var(--forest)}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border:none;border-radius:6px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;background:var(--ink);color:white;transition:opacity .15s}
+    .btn:hover{opacity:.85}.btn:disabled{opacity:.4;cursor:not-allowed}
+    .btn-green{background:var(--forest)}.btn-danger{background:var(--burgundy)}
+    .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+    .btn-amber{background:var(--amber)}
+    .nav-tab{padding:8px 16px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;color:var(--ink-soft);border-bottom:2px solid transparent;transition:all .15s}
+    .nav-tab.active{color:var(--ink);border-bottom-color:var(--amber)}
+    .score-input{width:44px;padding:8px;text-align:center;font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;border:1px solid var(--line);border-radius:6px;background:white}
+    .score-input:focus{outline:none;border-color:var(--amber)}
+    @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.4}}
+    .app{animation:fadein .3s ease}
+    input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+    input[type=number]{-moz-appearance:textfield}
+    .scrollbar::-webkit-scrollbar{width:4px;height:4px}
+    .scrollbar::-webkit-scrollbar-track{background:transparent}
+    .scrollbar::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px}
+  `;
+
+// ── COMPONENTS ───────────────────────────────────────────────────
+const Flag = ({
+  team,
+  size = 16
+}) => {
+  const iso = TEAM_FLAGS[team];
+  if (!iso) return null;
+  return /*#__PURE__*/React.createElement("span", {
+    className: `fi fi-${iso}`,
+    style: {
+      width: size * 1.33,
+      height: size,
+      display: 'inline-block',
+      verticalAlign: 'middle',
+      flexShrink: 0,
+      borderRadius: 2
+    },
+    "aria-label": team
+  });
+};
+const AVATAR_COLORS = ['#c0392b', '#2980b9', '#27ae60', '#8e44ad', '#d35400', '#16a085', '#e67e22', '#1abc9c', '#9f1b1b', '#2c3e50'];
+const Avatar = ({
+  name,
+  size = 32
+}) => {
+  if (!name || name === '__guest__') return /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: size,
+      height: size,
+      borderRadius: '50%',
+      background: 'var(--cream2)',
+      border: '1px solid var(--line)',
+      flexShrink: 0
+    }
+  });
+  const initials = name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?';
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = Math.imul(31, h) + name.charCodeAt(i) | 0;
+  const bg = AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: size,
+      height: size,
+      borderRadius: '50%',
+      background: bg,
+      color: 'white',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: Math.round(size * .38),
+      fontWeight: 700,
+      flexShrink: 0,
+      userSelect: 'none',
+      fontFamily: 'inherit'
+    }
+  }, initials);
+};
+
+// ── BANNER COUNTDOWN ─────────────────────────────────────────────
+function BannerCountdown({
+  kickoffRaw
+}) {
+  const koMs = useMemo(() => new Date(kickoffRaw).getTime(), [kickoffRaw]);
+  const [now, setNow] = useState(Date.now);
+  const secsLeft = isNaN(koMs) ? null : (koMs - now) / 1000;
+  const inWindow = secsLeft !== null && secsLeft > 0 && secsLeft <= 45 * 60;
+  const inLastMin = secsLeft !== null && secsLeft <= 60 && secsLeft > 0;
+  useEffect(() => {
+    if (!inWindow) return;
+    const t = setInterval(() => setNow(Date.now()), inLastMin ? 1000 : 15000);
+    return () => clearInterval(t);
+  }, [inWindow, inLastMin]);
+  const {
+    time,
+    date
+  } = formatMatchTime(kickoffRaw);
+  if (!inWindow) return /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: '#f0932b',
+      marginLeft: 3,
+      fontFamily: 'monospace',
+      fontWeight: 700
+    }
+  }, date ? `${date} ${time}` : time);
+  const m = Math.floor(secsLeft / 60),
+    s = Math.floor(secsLeft % 60);
+  const cdStr = m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
+  const urgent = secsLeft <= 60;
+  return /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      fontFamily: 'monospace',
+      fontWeight: 800,
+      color: urgent ? '#e74c3c' : '#2ecc71',
+      background: urgent ? 'rgba(231,76,60,.2)' : 'rgba(46,204,113,.15)',
+      padding: '1px 5px',
+      borderRadius: 3,
+      marginLeft: 4,
+      animation: urgent ? 'liveBlink .8s ease-in-out infinite' : 'none'
+    }
+  }, "\u23F1 ", cdStr);
+}
+
+// ── LIVE BANNER ───────────────────────────────────────────────────
+const LiveMatchBanner = ({
+  liveMatch,
+  loading
+}) => {
+  if (loading) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#c0392b',
+      color: 'white',
+      padding: '7px 16px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      animation: 'spin 1s linear infinite',
+      display: 'inline-block'
+    }
+  }, "\u26BD"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 600
+    }
+  }, "Checking live score\u2026"));
+  if (!liveMatch) return null;
+  const m = liveMatch;
+  const isLive = ['1H', '2H', 'HT', 'ET', 'PEN'].includes(m.status);
+  const isFT = m.status === 'FT';
+  if (!isLive && !isFT) {
+    // upcoming
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: '#1a1a1a',
+        color: 'white',
+        padding: '6px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        fontSize: 12
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 700,
+        color: '#f0932b',
+        letterSpacing: 1
+      }
+    }, "\uD83D\uDCC5 UPCOMING"), /*#__PURE__*/React.createElement(Flag, {
+      team: m.home,
+      size: 14
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 600
+      }
+    }, m.home), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'rgba(255,255,255,.5)'
+      }
+    }, "vs"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 600
+      }
+    }, m.away), /*#__PURE__*/React.createElement(Flag, {
+      team: m.away,
+      size: 14
+    }), /*#__PURE__*/React.createElement(BannerCountdown, {
+      kickoffRaw: MATCH.kickoff
+    }));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#1a1a1a',
+      color: 'white',
+      padding: '6px 16px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      fontSize: 12,
+      flexWrap: 'wrap'
+    }
+  }, isLive && /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: '#c0392b',
+      color: 'white',
+      fontSize: 9,
+      fontWeight: 800,
+      padding: '2px 7px',
+      borderRadius: 3,
+      letterSpacing: 1,
+      flexShrink: 0,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 6,
+      height: 6,
+      borderRadius: '50%',
+      background: 'white',
+      display: 'inline-block',
+      animation: 'liveBlink 1s infinite'
+    }
+  }), "LIVE"), isFT && /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: 'var(--forest)',
+      color: 'white',
+      fontSize: 9,
+      fontWeight: 800,
+      padding: '2px 7px',
+      borderRadius: 3
+    }
+  }, "FT"), /*#__PURE__*/React.createElement(Flag, {
+    team: m.home,
+    size: 14
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 700
+    }
+  }, m.home), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'monospace',
+      fontWeight: 900,
+      color: '#f9ca24',
+      fontSize: 16
+    }
+  }, m.homeScore ?? '–', " \u2013 ", m.awayScore ?? '–'), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 700
+    }
+  }, m.away), /*#__PURE__*/React.createElement(Flag, {
+    team: m.away,
+    size: 14
+  }), m.minute && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9,
+      color: '#e74c3c',
+      fontWeight: 800,
+      padding: '1px 5px',
+      borderRadius: 3,
+      background: 'rgba(231,76,60,.2)'
+    }
+  }, m.minute, "'"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.__refreshBanner && window.__refreshBanner(),
+    style: {
+      marginLeft: 'auto',
+      background: 'none',
+      border: '1px solid rgba(255,255,255,.2)',
+      color: 'rgba(255,255,255,.6)',
+      borderRadius: 4,
+      fontSize: 11,
+      padding: '2px 7px',
+      cursor: 'pointer'
+    },
+    onMouseEnter: e => e.currentTarget.style.color = 'white',
+    onMouseLeave: e => e.currentTarget.style.color = 'rgba(255,255,255,.6)'
+  }, "\u21BB"));
+};
+
+// ── TEAM SEARCH INPUT ─────────────────────────────────────────────
+const TeamSearchInput = ({
+  value,
+  onChange,
+  placeholder = 'Pick a team…'
+}) => {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(0);
+  const ref = useRef();
+  const filtered = q.length < 1 ? [] : ALL_TEAMS.filter(t => t.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
+  useEffect(() => {
+    const fn = e => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+        setQ('');
+      }
+    };
+    document.addEventListener('mousedown', fn);
+    return () => document.removeEventListener('mousedown', fn);
+  }, []);
+  const select = t => {
+    onChange(t);
+    setQ('');
+    setOpen(false);
+  };
+  const handleKey = e => {
+    if (!open) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHi(h => Math.min(h + 1, filtered.length - 1));
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHi(h => Math.max(h - 1, 0));
+    }
+    if (e.key === 'Enter' && filtered[hi]) {
+      e.preventDefault();
+      select(filtered[hi]);
+    }
+    if (e.key === 'Escape') {
+      setOpen(false);
+      setQ('');
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    ref: ref,
+    style: {
+      position: 'relative'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '9px 12px',
+      border: `1px solid ${value ? 'var(--forest)' : 'var(--line)'}`,
+      borderRadius: 4,
+      background: 'white',
+      cursor: 'text'
+    },
+    onClick: () => {
+      setOpen(true);
+      setQ('');
+    }
+  }, value ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Flag, {
+    team: value,
+    size: 16
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: 500
+    }
+  }, value), /*#__PURE__*/React.createElement("button", {
+    onClick: e => {
+      e.stopPropagation();
+      onChange('');
+    },
+    style: {
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: 'var(--ink-soft)',
+      fontSize: 14,
+      padding: 0
+    }
+  }, "\u2715")) : /*#__PURE__*/React.createElement("input", {
+    autoComplete: "off",
+    value: q,
+    onChange: e => {
+      setQ(e.target.value);
+      setOpen(true);
+      setHi(0);
+    },
+    onKeyDown: handleKey,
+    onFocus: () => setOpen(true),
+    placeholder: placeholder,
+    style: {
+      flex: 1,
+      border: 'none',
+      outline: 'none',
+      fontFamily: 'inherit',
+      fontSize: 14,
+      background: 'transparent',
+      color: 'var(--ink)'
+    }
+  })), open && filtered.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "scrollbar",
+    style: {
+      position: 'absolute',
+      zIndex: 100,
+      top: '100%',
+      left: 0,
+      right: 0,
+      background: 'white',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      boxShadow: '0 4px 16px rgba(0,0,0,.12)',
+      maxHeight: 200,
+      overflowY: 'auto',
+      marginTop: 2
+    }
+  }, filtered.map((t, i) => /*#__PURE__*/React.createElement("div", {
+    key: t,
+    onMouseDown: () => select(t),
+    style: {
+      padding: '8px 12px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      cursor: 'pointer',
+      background: i === hi ? 'var(--cream2)' : 'white',
+      fontSize: 13
+    },
+    onMouseEnter: () => setHi(i)
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: t,
+    size: 14
+  }), t))));
+};
+
+// ── PREDICTION VIEW ───────────────────────────────────────────────
+const PredictionView = ({
+  currentUser,
+  prediction,
+  onSave,
+  result,
+  home,
+  away,
+  locked
+}) => {
+  const [h, setH] = useState('');
+  const [a, setA] = useState('');
+  const [pk, setPk] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (prediction) {
+      setH(String(prediction.h ?? ''));
+      setA(String(prediction.a ?? ''));
+      setPk(prediction.pk || '');
+    }
+  }, [prediction]);
+  const isDraw = h !== '' && a !== '' && parseInt(h) === parseInt(a);
+  const homeLead = h !== '' && a !== '' && parseInt(h) > parseInt(a);
+  const awayLead = h !== '' && a !== '' && parseInt(a) > parseInt(h);
+  const needPk = isDraw && home !== 'TBD' && away !== 'TBD';
+  const handleSave = async () => {
+    if (h === '' || a === '') return;
+    setSaving(true);
+    const p = {
+      h: parseInt(h),
+      a: parseInt(a),
+      ...(needPk && pk ? {
+        pk
+      } : {})
+    };
+    await onSave(p);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  // Preview score
+  const previewScore = useMemo(() => {
+    if (h === '' || a === '' || !result || result.h == null || result.h === '') return null;
+    return computeScore({
+      h: parseInt(h),
+      a: parseInt(a),
+      pk
+    }, result);
+  }, [h, a, pk, result]);
+  const hasResult = result && result.h != null && result.h !== '';
+  return /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 12
+    }
+  }, "\uD83C\uDFAF Your Prediction"), locked && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'var(--burgundy)',
+      background: 'rgba(159,27,27,.07)',
+      padding: '10px 14px',
+      borderRadius: 6,
+      borderLeft: '3px solid var(--burgundy)',
+      marginBottom: 12
+    }
+  }, "\uD83D\uDD12 Predictions are locked \u2014 match has started."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 16,
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: home,
+    size: 32
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 15,
+      marginTop: 6
+    }
+  }, home), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    max: "20",
+    className: "score-input",
+    value: h,
+    onChange: e => setH(e.target.value),
+    disabled: locked,
+    style: {
+      marginTop: 8,
+      width: 60
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 18,
+      color: 'var(--ink-soft)'
+    }
+  }, "\u2014"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: away,
+    size: 32
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 15,
+      marginTop: 6
+    }
+  }, away), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    max: "20",
+    className: "score-input",
+    value: a,
+    onChange: e => setA(e.target.value),
+    disabled: locked,
+    style: {
+      marginTop: 8,
+      width: 60
+    }
+  }))), needPk && !locked && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 12,
+      padding: '10px 12px',
+      background: 'rgba(214,137,42,.08)',
+      borderRadius: 6,
+      border: '1px solid rgba(214,137,42,.3)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 600,
+      marginBottom: 6
+    }
+  }, "\uD83D\uDD2B Penalty Shootout winner (required for a draw)"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, [home, away].map(t => /*#__PURE__*/React.createElement("button", {
+    key: t,
+    onClick: () => setPk(t),
+    style: {
+      flex: 1,
+      padding: '7px 10px',
+      borderRadius: 5,
+      border: `2px solid ${pk === t ? 'var(--amber)' : 'var(--line)'}`,
+      background: pk === t ? 'rgba(214,137,42,.12)' : 'white',
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      fontSize: 13,
+      fontWeight: pk === t ? 700 : 500,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: t,
+    size: 14
+  }), t)))), !locked && /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-green",
+    onClick: handleSave,
+    disabled: saving || h === '' || a === '' || needPk && !pk,
+    style: {
+      width: '100%',
+      justifyContent: 'center'
+    }
+  }, saving ? '⏳ Saving…' : saved ? '✅ Saved!' : '💾 Save Prediction'), previewScore !== null && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12,
+      padding: '10px 14px',
+      background: 'var(--cream2)',
+      borderRadius: 6,
+      fontSize: 13
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "micro-caps"
+  }, "Your score: "), /*#__PURE__*/React.createElement("span", {
+    className: "mono",
+    style: {
+      fontWeight: 700,
+      fontSize: 16,
+      color: 'var(--forest)'
+    }
+  }, previewScore, " pts"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-soft)',
+      marginLeft: 8
+    }
+  }, "vs actual ", result.h, "\u2013", result.a)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 16,
+      borderTop: '1px solid var(--line-soft)',
+      paddingTop: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 8
+    }
+  }, "Scoring Rules"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'auto 1fr',
+      gap: '4px 12px',
+      fontSize: 12,
+      color: 'var(--ink-soft)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "mono",
+    style: {
+      fontWeight: 700,
+      color: 'var(--forest)'
+    }
+  }, "+", SCORE_CORRECT_RESULT), /*#__PURE__*/React.createElement("span", null, "\u2705 Correct result"), /*#__PURE__*/React.createElement("span", {
+    className: "mono",
+    style: {
+      fontWeight: 700,
+      color: 'var(--forest)'
+    }
+  }, "+", SCORE_PER_GOAL), /*#__PURE__*/React.createElement("span", null, "\u26BD Each correct goal"), /*#__PURE__*/React.createElement("span", {
+    className: "mono",
+    style: {
+      fontWeight: 700,
+      color: 'var(--forest)'
+    }
+  }, "+", SCORE_EXACT_BONUS), /*#__PURE__*/React.createElement("span", null, "\uD83C\uDFAF Exact score bonus"), /*#__PURE__*/React.createElement("span", {
+    className: "mono",
+    style: {
+      fontWeight: 700,
+      color: 'var(--amber)'
+    }
+  }, "+", SCORE_CORRECT_DRAW), /*#__PURE__*/React.createElement("span", null, "\uD83D\uDD04 Correct draw (replaces result pts)"), /*#__PURE__*/React.createElement("span", {
+    className: "mono",
+    style: {
+      fontWeight: 700,
+      color: 'var(--burgundy)'
+    }
+  }, "+", SCORE_QF_WINNER), /*#__PURE__*/React.createElement("span", null, "\uD83C\uDFC6 Correct QF advancing team"))));
+};
+
+// ── LEADERBOARD VIEW ──────────────────────────────────────────────
+const LeaderboardView = ({
+  participants,
+  predictions,
+  result,
+  currentUser,
+  home,
+  away
+}) => {
+  const scores = useMemo(() => {
+    if (!result || result.h == null || result.h === '') return [];
+    return participants.map(name => ({
+      name,
+      pts: computeScore(predictions[name] || {}, result)
+    })).sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
+  }, [participants, predictions, result]);
+  const pending = !result || result.h == null || result.h === '';
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 4
+    }
+  }, participants.length, " participants"), /*#__PURE__*/React.createElement("h2", {
+    className: "display",
+    style: {
+      fontSize: 32,
+      fontWeight: 700,
+      margin: '4px 0',
+      letterSpacing: '-.02em',
+      lineHeight: 1
+    }
+  }, "Leaderboard"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-soft)',
+      margin: '4px 0 0'
+    }
+  }, pending ? 'Populates once the result is entered.' : `${home} ${result.h} – ${result.a} ${away}`)), pending ? /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 32,
+      textAlign: 'center',
+      color: 'var(--ink-soft)',
+      fontStyle: 'italic'
+    }
+  }, "Results not yet entered. Check back after the match!") : /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 0,
+      overflow: 'hidden'
+    }
+  }, scores.map((s, i) => {
+    const isCurrent = s.name === currentUser;
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : null;
+    return /*#__PURE__*/React.createElement("div", {
+      key: s.name,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '10px 14px',
+        borderBottom: '1px solid var(--line-soft)',
+        background: isCurrent ? 'rgba(214,137,42,.07)' : i % 2 === 0 ? 'var(--paper)' : 'rgba(0,0,0,.01)'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        color: 'var(--ink-soft)',
+        minWidth: 20,
+        textAlign: 'right'
+      }
+    }, medal || i + 1), /*#__PURE__*/React.createElement(Avatar, {
+      name: s.name,
+      size: 26
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 600,
+        fontSize: 14,
+        flex: 1
+      }
+    }, s.name, isCurrent && /*#__PURE__*/React.createElement("span", {
+      className: "pill",
+      style: {
+        marginLeft: 6,
+        fontSize: 9
+      }
+    }, "you")), /*#__PURE__*/React.createElement("span", {
+      className: "mono",
+      style: {
+        fontWeight: 700,
+        fontSize: 16,
+        color: s.pts > 0 ? 'var(--forest)' : 'var(--ink-soft)'
+      }
+    }, s.pts), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-soft)'
+      }
+    }, "pts"));
+  })));
+};
+
+// ── FAN PICKS VIEW ────────────────────────────────────────────────
+const FanPicksView = ({
+  participants,
+  predictions,
+  result,
+  home,
+  away
+}) => {
+  const total = participants.length;
+  if (!total) return /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 32,
+      textAlign: 'center',
+      color: 'var(--ink-soft)',
+      fontStyle: 'italic'
+    }
+  }, "No predictions yet.");
+  const stats = useMemo(() => {
+    let hWin = 0,
+      aWin = 0,
+      draw = 0,
+      totalPreds = 0,
+      exactCount = 0;
+    const scoreCounts = {};
+    const hasRes = result && result.h != null && result.h !== '';
+    participants.forEach(name => {
+      const p = predictions[name];
+      if (!p || p.h == null || p.h === '') return;
+      totalPreds++;
+      const pH = parseInt(p.h),
+        pA = parseInt(p.a);
+      if (pH > pA) hWin++;else if (pA > pH) aWin++;else draw++;
+      const key = `${pH}-${pA}`;
+      scoreCounts[key] = (scoreCounts[key] || 0) + 1;
+      if (hasRes && parseInt(result.h) === pH && parseInt(result.a) === pA) exactCount++;
+    });
+    const topScores = Object.entries(scoreCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return {
+      hWin,
+      aWin,
+      draw,
+      totalPreds,
+      topScores,
+      exactCount
+    };
+  }, [participants, predictions, result]);
+  const {
+    hWin,
+    aWin,
+    draw,
+    totalPreds,
+    topScores,
+    exactCount
+  } = stats;
+  const max = Math.max(hWin, aWin, draw, 1);
+  const Bar = ({
+    label,
+    count,
+    color,
+    icon
+  }) => /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      fontSize: 12,
+      fontWeight: 600,
+      marginBottom: 4
+    }
+  }, /*#__PURE__*/React.createElement("span", null, icon, " ", label), /*#__PURE__*/React.createElement("span", {
+    className: "mono"
+  }, count, " ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-soft)'
+    }
+  }, "(", totalPreds ? Math.round(count / totalPreds * 100) : 0, "%)"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 8,
+      background: 'var(--cream2)',
+      borderRadius: 4,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: '100%',
+      width: `${Math.round(count / max * 100)}%`,
+      background: color,
+      borderRadius: 4,
+      transition: 'width .4s'
+    }
+  })));
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 4
+    }
+  }, "Crowd Intelligence"), /*#__PURE__*/React.createElement("h2", {
+    className: "display",
+    style: {
+      fontSize: 32,
+      fontWeight: 700,
+      margin: '4px 0',
+      letterSpacing: '-.02em'
+    }
+  }, "Fan Picks"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-soft)',
+      margin: '4px 0 0'
+    }
+  }, totalPreds, " of ", total, " players have submitted predictions")), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 12
+    }
+  }, "Who the crowd is picking"), /*#__PURE__*/React.createElement(Bar, {
+    label: `${home} Win`,
+    count: hWin,
+    color: "var(--burgundy)",
+    icon: "\uD83C\uDFE0"
+  }), /*#__PURE__*/React.createElement(Bar, {
+    label: "Draw",
+    count: draw,
+    color: "var(--amber)",
+    icon: "\uD83E\uDD1D"
+  }), /*#__PURE__*/React.createElement(Bar, {
+    label: `${away} Win`,
+    count: aWin,
+    color: "var(--forest)",
+    icon: "\u2708\uFE0F"
+  })), topScores.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 8
+    }
+  }, "Most popular score predictions"), topScores.map(([score, cnt], i) => /*#__PURE__*/React.createElement("div", {
+    key: score,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '5px 0',
+      borderBottom: '1px solid var(--line-soft)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: 'var(--ink-soft)',
+      minWidth: 14
+    }
+  }, i + 1), /*#__PURE__*/React.createElement("span", {
+    className: "mono",
+    style: {
+      fontWeight: 700,
+      fontSize: 14,
+      flex: 1
+    }
+  }, score.replace('-', ' – ')), /*#__PURE__*/React.createElement("span", {
+    className: "mono",
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-soft)'
+    }
+  }, cnt, " pick", cnt !== 1 ? 's' : '')))), result && result.h != null && result.h !== '' && /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 4
+    }
+  }, "Exact score predicted by"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 24,
+      fontWeight: 700,
+      color: 'var(--forest)'
+    }
+  }, exactCount), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-soft)'
+    }
+  }, "player", exactCount !== 1 ? 's' : '', " nailed it exactly")));
+};
+
+// ── BONUS PICK VIEW ───────────────────────────────────────────────
+const BonusPickView = ({
+  currentUser,
+  bonusPick,
+  onSaveBonusPick,
+  bonusResult,
+  locked,
+  home,
+  away
+}) => {
+  const [pick, setPick] = useState(bonusPick || '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    setPick(bonusPick || '');
+  }, [bonusPick]);
+  const handleSave = async () => {
+    if (!pick.trim()) return;
+    setSaving(true);
+    await onSaveBonusPick(pick.trim());
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+  const isCorrect = bonusResult && pick && bonusResult.toLowerCase().trim() === pick.toLowerCase().trim();
+  const hasResult = !!bonusResult;
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 4
+    }
+  }, "Bonus Pick \xB7 10 pts"), /*#__PURE__*/React.createElement("h2", {
+    className: "display",
+    style: {
+      fontSize: 32,
+      fontWeight: 700,
+      margin: '4px 0',
+      letterSpacing: '-.02em'
+    }
+  }, "First Goalscorer"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-soft)',
+      margin: '4px 0 0'
+    }
+  }, "Who will score the first goal? +10 pts if correct.")), /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, locked && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'var(--burgundy)',
+      background: 'rgba(159,27,27,.07)',
+      padding: '10px 14px',
+      borderRadius: 6,
+      borderLeft: '3px solid var(--burgundy)',
+      marginBottom: 12
+    }
+  }, "\uD83D\uDD12 Bonus pick is locked."), hasResult && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 12,
+      padding: '12px 14px',
+      borderRadius: 6,
+      background: isCorrect ? 'rgba(27,67,50,.08)' : 'rgba(214,137,42,.08)',
+      border: `1px solid ${isCorrect ? 'var(--forest)' : 'var(--amber)'}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 14
+    }
+  }, isCorrect ? '🎉 You got it!' : `⚽ First goal: ${bonusResult}`), isCorrect && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--forest)',
+      marginTop: 2
+    }
+  }, "+10 pts awarded!"), !isCorrect && pick && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-soft)',
+      marginTop: 2
+    }
+  }, "You picked: ", pick)), /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'block',
+      fontSize: 12,
+      fontWeight: 600,
+      color: 'var(--ink-soft)',
+      marginBottom: 6
+    }
+  }, "Player name (first + last)"), /*#__PURE__*/React.createElement("input", {
+    value: pick,
+    onChange: e => setPick(e.target.value),
+    onKeyDown: e => e.key === 'Enter' && handleSave(),
+    disabled: locked || hasResult,
+    placeholder: "e.g. Kylian Mbapp\xE9",
+    style: {
+      width: '100%',
+      padding: '10px 14px',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 14,
+      marginBottom: 10,
+      boxSizing: 'border-box'
+    }
+  }), !locked && !hasResult && /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-green",
+    onClick: handleSave,
+    disabled: saving || !pick.trim(),
+    style: {
+      width: '100%',
+      justifyContent: 'center'
+    }
+  }, saving ? '⏳ Saving…' : saved ? '✅ Saved!' : '💾 Save Bonus Pick')));
+};
+
+// ── PREDICTION SPOTLIGHT ─────────────────────────────────────────
+const PredictionSpotlight = ({
+  participants,
+  predictions,
+  result,
+  home,
+  away
+}) => {
+  const hasResult = result && result.h != null && result.h !== '';
+  if (!hasResult) {
+    // Show a few picks as a teaser (no scores revealed)
+    const withPicks = participants.filter(n => predictions[n] && predictions[n].h != null);
+    if (!withPicks.length) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      className: "card",
+      style: {
+        marginBottom: 12
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "micro-caps",
+      style: {
+        marginBottom: 8
+      }
+    }, "\uD83D\uDD26 Prediction Spotlight"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: 'var(--ink-soft)',
+        marginBottom: 10
+      }
+    }, withPicks.length, " of ", participants.length, " have locked in their prediction"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 6
+      }
+    }, withPicks.slice(0, 12).map(name => /*#__PURE__*/React.createElement("div", {
+      key: name,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '4px 8px',
+        background: 'var(--cream2)',
+        borderRadius: 20,
+        fontSize: 12
+      }
+    }, /*#__PURE__*/React.createElement(Avatar, {
+      name: name,
+      size: 18
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 500
+      }
+    }, name), /*#__PURE__*/React.createElement("span", {
+      className: "pill pill-success",
+      style: {
+        fontSize: 9
+      }
+    }, "\u2713"))), withPicks.length > 12 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '4px 10px',
+        background: 'var(--cream2)',
+        borderRadius: 20,
+        fontSize: 12,
+        color: 'var(--ink-soft)'
+      }
+    }, "+", withPicks.length - 12, " more")));
+  }
+  const scored = participants.map(name => ({
+    name,
+    pts: computeScore(predictions[name] || {}, result),
+    pred: predictions[name] || {}
+  })).sort((a, b) => b.pts - a.pts);
+  const best = scored.filter(s => s.pts === scored[0]?.pts && scored[0]?.pts > 0);
+  const exactHitters = scored.filter(s => parseInt((predictions[s.name] || {}).h) === parseInt(result.h) && parseInt((predictions[s.name] || {}).a) === parseInt(result.a));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 8
+    }
+  }, "\uD83D\uDD26 Prediction Spotlight"), best.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 12,
+      padding: '10px 12px',
+      background: 'rgba(214,137,42,.07)',
+      borderRadius: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      marginBottom: 6
+    }
+  }, "\uD83C\uDFC6 Top scorer", best.length > 1 ? 's' : '', " this match \u2014 ", scored[0].pts, " pts"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 6
+    }
+  }, best.map(s => /*#__PURE__*/React.createElement("div", {
+    key: s.name,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '4px 10px',
+      background: 'white',
+      border: '1px solid var(--amber)',
+      borderRadius: 20,
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: s.name,
+    size: 18
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 600
+    }
+  }, s.name))))), exactHitters.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '10px 12px',
+      background: 'rgba(27,67,50,.07)',
+      borderRadius: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      marginBottom: 6
+    }
+  }, "\uD83C\uDFAF Exact score: ", result.h, "\u2013", result.a), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 6
+    }
+  }, exactHitters.map(s => /*#__PURE__*/React.createElement("div", {
+    key: s.name,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '4px 10px',
+      background: 'white',
+      border: '1px solid var(--forest)',
+      borderRadius: 20,
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: s.name,
+    size: 18
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 600
+    }
+  }, s.name))))));
+};
+
+// ── SHARP SHOOTERS ────────────────────────────────────────────────
+const SharpShooters = ({
+  participants,
+  predictions,
+  result
+}) => {
+  const exactHitters = useMemo(() => {
+    if (!result || result.h == null || result.h === '') return [];
+    return participants.filter(n => {
+      const p = predictions[n] || {};
+      return p.h != null && parseInt(p.h) === parseInt(result.h) && parseInt(p.a) === parseInt(result.a);
+    }).map(n => ({
+      name: n
+    }));
+  }, [participants, predictions, result]);
+  if (!exactHitters.length) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 4
+    }
+  }, "\uD83C\uDFAF Sharp Shooters"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-soft)',
+      marginBottom: 10
+    }
+  }, "Nailed the exact score"), exactHitters.map((s, i) => /*#__PURE__*/React.createElement("div", {
+    key: s.name,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '6px 0',
+      borderBottom: '1px solid var(--line-soft)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: 'var(--ink-soft)',
+      minWidth: 14
+    }
+  }, i + 1), /*#__PURE__*/React.createElement(Avatar, {
+    name: s.name,
+    size: 22
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      fontWeight: 600
+    }
+  }, s.name), /*#__PURE__*/React.createElement("span", {
+    className: "pill pill-success",
+    style: {
+      fontSize: 9,
+      marginLeft: 'auto'
+    }
+  }, "exact \u2713"))));
+};
+
+// ── FAN ZONE ─────────────────────────────────────────────────────
+const FanZone = ({
+  participants,
+  predictions,
+  home,
+  away
+}) => {
+  const total = participants.filter(n => {
+    const p = predictions[n];
+    return p && p.h != null && p.h !== '';
+  }).length;
+  const homeSupport = participants.filter(n => {
+    const p = predictions[n];
+    if (!p || p.h == null) return false;
+    return parseInt(p.h) > parseInt(p.a);
+  }).length;
+  const awaySupport = participants.filter(n => {
+    const p = predictions[n];
+    if (!p || p.h == null) return false;
+    return parseInt(p.a) > parseInt(p.h);
+  }).length;
+  if (!total) return null;
+  const homePct = total ? Math.round(homeSupport / total * 100) : 50;
+  const awayPct = total ? Math.round(awaySupport / total * 100) : 50;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: '.08em',
+      textTransform: 'uppercase',
+      color: 'var(--ink-soft)',
+      marginBottom: 12,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      height: 1,
+      background: 'var(--line)'
+    }
+  }), "Fan Zone", /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      height: 1,
+      background: 'var(--line)'
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: home,
+    size: 24
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      marginTop: 4
+    }
+  }, home), /*#__PURE__*/React.createElement("div", {
+    className: "mono",
+    style: {
+      fontSize: 20,
+      fontWeight: 700,
+      color: 'var(--burgundy)'
+    }
+  }, homePct, "%")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      color: 'var(--ink-soft)',
+      fontSize: 13
+    }
+  }, "vs"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: away,
+    size: 24
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      marginTop: 4
+    }
+  }, away), /*#__PURE__*/React.createElement("div", {
+    className: "mono",
+    style: {
+      fontSize: 20,
+      fontWeight: 700,
+      color: 'var(--forest)'
+    }
+  }, awayPct, "%"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      height: 10,
+      background: 'var(--cream2)',
+      borderRadius: 5,
+      overflow: 'hidden',
+      display: 'flex'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: `${homePct}%`,
+      background: 'var(--burgundy)',
+      transition: 'width .4s'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      background: 'var(--forest)'
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-soft)',
+      textAlign: 'center',
+      marginTop: 6
+    }
+  }, total, " prediction", total !== 1 ? 's' : '', " submitted"));
+};
+
+// ── ADMIN VIEW ───────────────────────────────────────────────────
+const AdminView = ({
+  participants,
+  predictions,
+  result,
+  onSaveResult,
+  bonusResult,
+  onSaveBonusResult,
+  home,
+  away,
+  onUpdateTeams,
+  pendingUsers,
+  onApprovePending,
+  onRejectPending
+}) => {
+  const [rh, setRh] = useState(result?.h != null ? String(result.h) : '');
+  const [ra, setRa] = useState(result?.a != null ? String(result.a) : '');
+  const [pkWinner, setPkWinner] = useState(result?.pkWinner || '');
+  const [saving, setSaving] = useState(false);
+  const [bonusAns, setBonusAns] = useState(bonusResult || '');
+  const [savingBonus, setSavingBonus] = useState(false);
+  const [newHome, setNewHome] = useState(home);
+  const [newAway, setNewAway] = useState(away);
+  const [savingTeams, setSavingTeams] = useState(false);
+  const [adminPw, setAdminPw] = useState('');
+  const [authed, setAuthed] = useState(false);
+  const [pwErr, setPwErr] = useState('');
+  useEffect(() => {
+    if (result) {
+      setRh(result.h != null ? String(result.h) : '');
+      setRa(result.a != null ? String(result.a) : '');
+      setPkWinner(result.pkWinner || '');
+    }
+  }, [result]);
+  useEffect(() => {
+    setBonusAns(bonusResult || '');
+  }, [bonusResult]);
+  useEffect(() => {
+    setNewHome(home);
+    setNewAway(away);
+  }, [home, away]);
+  const handleAdminLogin = async () => {
+    const hash = await (async pw => {
+      try {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw + '::qft'));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      } catch {
+        return pw;
+      }
+    })(adminPw);
+    const storedHash = await (async pw => {
+      try {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw + '::qft'));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      } catch {
+        return pw;
+      }
+    })(DEFAULT_ADMIN_PW);
+    if (adminPw === DEFAULT_ADMIN_PW || hash === storedHash) {
+      setAuthed(true);
+    } else {
+      setPwErr('Wrong password.');
+    }
+  };
+  if (!authed) return /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      maxWidth: 360,
+      margin: '0 auto'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      marginBottom: 12
+    }
+  }, "\uD83D\uDD10 Admin Login"), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    value: adminPw,
+    onChange: e => setAdminPw(e.target.value),
+    onKeyDown: e => e.key === 'Enter' && handleAdminLogin(),
+    placeholder: "Admin password",
+    style: {
+      width: '100%',
+      padding: '10px 14px',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 14,
+      marginBottom: 8,
+      boxSizing: 'border-box'
+    }
+  }), pwErr && /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: 'var(--burgundy)',
+      fontSize: 12,
+      marginBottom: 8
+    }
+  }, pwErr), /*#__PURE__*/React.createElement("button", {
+    className: "btn",
+    onClick: handleAdminLogin,
+    style: {
+      width: '100%',
+      justifyContent: 'center'
+    }
+  }, "Log in \u2192"));
+  const saveResult = async () => {
+    if (rh === '' || ra === '') return;
+    setSaving(true);
+    await onSaveResult({
+      h: parseInt(rh),
+      a: parseInt(ra),
+      ...(pkWinner ? {
+        pkWinner
+      } : {})
+    });
+    setSaving(false);
+  };
+  const saveBonus = async () => {
+    if (!bonusAns.trim()) return;
+    setSavingBonus(true);
+    await onSaveBonusResult(bonusAns.trim());
+    setSavingBonus(false);
+  };
+  const saveTeams = async () => {
+    setSavingTeams(true);
+    await onUpdateTeams(newHome, newAway);
+    setSavingTeams(false);
+  };
+  const isDraw = rh !== '' && ra !== '' && parseInt(rh) === parseInt(ra);
+  const pending = Object.values(pendingUsers || {}).filter(p => p.status === 'pending');
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 8
+    }
+  }, "Admin Panel"), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      marginBottom: 10
+    }
+  }, "\u26BD Set Teams"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 8,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--ink-soft)',
+      marginBottom: 4
+    }
+  }, "Home team"), /*#__PURE__*/React.createElement(TeamSearchInput, {
+    value: newHome,
+    onChange: setNewHome
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--ink-soft)',
+      marginBottom: 4
+    }
+  }, "Away team"), /*#__PURE__*/React.createElement(TeamSearchInput, {
+    value: newAway,
+    onChange: setNewAway
+  }))), /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-amber",
+    onClick: saveTeams,
+    disabled: savingTeams || !newHome || !newAway,
+    style: {
+      width: '100%',
+      justifyContent: 'center'
+    }
+  }, savingTeams ? '⏳ Saving…' : '💾 Update Teams')), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      marginBottom: 10
+    }
+  }, "\uD83D\uDCCB Enter Match Result"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: home,
+    size: 24
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 600,
+      margin: '4px 0'
+    }
+  }, home), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    className: "score-input",
+    value: rh,
+    onChange: e => setRh(e.target.value),
+    style: {
+      width: 60
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      color: 'var(--ink-soft)'
+    }
+  }, "\u2014"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: away,
+    size: 24
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 600,
+      margin: '4px 0'
+    }
+  }, away), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    className: "score-input",
+    value: ra,
+    onChange: e => setRa(e.target.value),
+    style: {
+      width: 60
+    }
+  }))), isDraw && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 600,
+      marginBottom: 6
+    }
+  }, "Penalty winner"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, [home, away].map(t => /*#__PURE__*/React.createElement("button", {
+    key: t,
+    onClick: () => setPkWinner(t),
+    style: {
+      flex: 1,
+      padding: '7px',
+      borderRadius: 5,
+      border: `2px solid ${pkWinner === t ? 'var(--amber)' : 'var(--line)'}`,
+      background: pkWinner === t ? 'rgba(214,137,42,.12)' : 'white',
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      fontSize: 12,
+      fontWeight: pkWinner === t ? 700 : 500
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: t,
+    size: 12
+  }), " ", t)))), /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-green",
+    onClick: saveResult,
+    disabled: saving || rh === '' || ra === '',
+    style: {
+      width: '100%',
+      justifyContent: 'center'
+    }
+  }, saving ? '⏳ Saving…' : '💾 Save Result')), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      marginBottom: 8
+    }
+  }, "\u26BD First Goalscorer \u2014 Answer"), /*#__PURE__*/React.createElement("input", {
+    value: bonusAns,
+    onChange: e => setBonusAns(e.target.value),
+    placeholder: "Player name",
+    style: {
+      width: '100%',
+      padding: '10px 14px',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 14,
+      marginBottom: 8,
+      boxSizing: 'border-box'
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-green",
+    onClick: saveBonus,
+    disabled: savingBonus || !bonusAns.trim(),
+    style: {
+      width: '100%',
+      justifyContent: 'center'
+    }
+  }, savingBonus ? '⏳ Saving…' : '💾 Save Answer')), pending.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      marginBottom: 8
+    }
+  }, "\uD83D\uDD14 Pending Approvals (", pending.length, ")"), pending.map(p => /*#__PURE__*/React.createElement("div", {
+    key: p.name,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '8px 0',
+      borderBottom: '1px solid var(--line-soft)'
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: p.name,
+    size: 28
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontWeight: 600
+    }
+  }, p.name), /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-green",
+    onClick: () => onApprovePending(p.name),
+    style: {
+      padding: '5px 12px',
+      fontSize: 12
+    }
+  }, "\u2713 Approve"), /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-danger",
+    onClick: () => onRejectPending(p.name),
+    style: {
+      padding: '5px 12px',
+      fontSize: 12
+    }
+  }, "\u2715 Reject")))), /*#__PURE__*/React.createElement("div", {
+    className: "card"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      marginBottom: 8
+    }
+  }, "\uD83D\uDC65 Participants (", participants.length, ")"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 6
+    }
+  }, participants.sort().map(n => /*#__PURE__*/React.createElement("div", {
+    key: n,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5,
+      padding: '4px 8px',
+      background: 'var(--cream2)',
+      borderRadius: 20,
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: n,
+    size: 18
+  }), /*#__PURE__*/React.createElement("span", null, n), predictions[n]?.h != null ? /*#__PURE__*/React.createElement("span", {
+    className: "pill pill-success",
+    style: {
+      fontSize: 9
+    }
+  }, "\u2713") : /*#__PURE__*/React.createElement("span", {
+    className: "pill",
+    style: {
+      fontSize: 9
+    }
+  }, "\u2014"))))));
+};
+
+// ── LOGIN SCREEN ──────────────────────────────────────────────────
+const LoginScreen = ({
+  onLogin,
+  participants,
+  pendingUsers,
+  locked
+}) => {
+  const [name, setName] = useState('');
+  const [pin, setPin] = useState('');
+  const [step, setStep] = useState('name');
+  const [error, setError] = useState('');
+  const trimmed = name.trim();
+  const isExisting = participants.some(p => p.toLowerCase() === trimmed.toLowerCase());
+  const canonical = isExisting ? participants.find(p => p.toLowerCase() === trimmed.toLowerCase()) : trimmed;
+  const inputStyle = {
+    width: '100%',
+    padding: '11px 14px',
+    fontSize: 15,
+    border: '1px solid var(--line)',
+    borderRadius: 4,
+    background: 'white',
+    fontFamily: 'inherit',
+    color: 'var(--ink)',
+    boxSizing: 'border-box'
+  };
+  const handleNameNext = () => {
+    if (!trimmed) {
+      setError('Please enter your name.');
+      return;
+    }
+    setStep('pin');
+  };
+  const handleSubmit = () => {
+    if (!trimmed) {
+      setError('Please enter your name.');
+      return;
+    }
+    onLogin(canonical, pin);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "app",
+    style: {
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 20
+    }
+  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 440,
+      width: '100%'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      marginBottom: 32
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 4
+    }
+  }, "FIFA World Cup 2026 \xB7 Quarter-Final"), /*#__PURE__*/React.createElement("h1", {
+    className: "display",
+    style: {
+      fontSize: 38,
+      fontWeight: 700,
+      lineHeight: 1,
+      margin: '0 0 8px',
+      letterSpacing: '-.02em'
+    }
+  }, "QF ", /*#__PURE__*/React.createElement("em", null, "Thursday"), /*#__PURE__*/React.createElement("br", null), "Prediction Pool"), /*#__PURE__*/React.createElement("p", {
+    style: {
+      color: 'var(--ink-soft)',
+      fontSize: 14,
+      margin: '4px 0 0'
+    }
+  }, "July 9, 2026 \xB7 One match. All the stakes."), participants.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 16,
+      display: 'inline-flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 8,
+      background: 'white',
+      border: '1px solid var(--line)',
+      borderRadius: 16,
+      padding: '10px 20px',
+      boxShadow: '0 2px 12px rgba(0,0,0,.07)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center'
+    }
+  }, participants.slice(0, 7).map((p, i) => /*#__PURE__*/React.createElement("div", {
+    key: p,
+    title: p,
+    style: {
+      marginLeft: i > 0 ? -8 : 0,
+      zIndex: 10 - i,
+      border: '2px solid white',
+      borderRadius: '50%'
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: p,
+    size: 30
+  }))), participants.length > 7 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginLeft: -8,
+      width: 30,
+      height: 30,
+      borderRadius: '50%',
+      background: 'var(--cream2)',
+      border: '2px solid white',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 10,
+      fontWeight: 700,
+      color: 'var(--ink-soft)'
+    }
+  }, "+", participants.length - 7)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700
+    }
+  }, "\uD83C\uDF88 ", participants.length, " player", participants.length !== 1 ? 's' : '', " competing"))), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 28
+    }
+  }, locked && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-soft)',
+      marginBottom: 16,
+      padding: '10px 14px',
+      background: 'var(--cream2)',
+      borderRadius: 6,
+      borderLeft: '3px solid var(--burgundy)'
+    }
+  }, "\uD83D\uDD12 Match has started \u2014 predictions locked. Still view leaderboard."), step === 'name' && /*#__PURE__*/React.createElement(React.Fragment, null, !locked && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
+    className: "micro-caps",
+    style: {
+      display: 'block',
+      marginBottom: 6
+    }
+  }, "Your name"), /*#__PURE__*/React.createElement("input", {
+    value: name,
+    onChange: e => {
+      setName(e.target.value);
+      setError('');
+    },
+    onKeyDown: e => e.key === 'Enter' && trimmed && handleNameNext(),
+    placeholder: "Enter your full name",
+    autoFocus: true,
+    style: {
+      ...inputStyle,
+      marginBottom: 4
+    }
+  }), error && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--burgundy)',
+      marginBottom: 8
+    }
+  }, error), /*#__PURE__*/React.createElement("button", {
+    className: "btn",
+    style: {
+      width: '100%',
+      justifyContent: 'center',
+      marginBottom: 12
+    },
+    onClick: handleNameNext,
+    disabled: !trimmed
+  }, "Continue \u2192"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: '1px solid var(--line)',
+      paddingTop: 14,
+      marginTop: 4
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 8
+    }
+  }, "Or tap to log back in"))), participants.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginTop: 4
+    }
+  }, participants.sort().map(p => /*#__PURE__*/React.createElement("button", {
+    key: p,
+    onClick: () => {
+      setName(p);
+      setStep('pin');
+    },
+    style: {
+      padding: '5px 12px 5px 6px',
+      borderRadius: 20,
+      border: '1px solid var(--line)',
+      background: 'var(--cream2)',
+      cursor: 'pointer',
+      fontSize: 13,
+      fontFamily: 'inherit',
+      fontWeight: 500,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 7
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: p,
+    size: 22
+  }), p)))), step === 'pin' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 14,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setStep('name'),
+    style: {
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: 'var(--ink-soft)',
+      fontSize: 14
+    }
+  }, "\u2190"), /*#__PURE__*/React.createElement(Avatar, {
+    name: trimmed,
+    size: 40
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 16
+    }
+  }, trimmed), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-soft)'
+    }
+  }, isExisting ? 'Welcome back! Enter your PIN.' : 'New player — set a PIN.'))), /*#__PURE__*/React.createElement("label", {
+    className: "micro-caps",
+    style: {
+      display: 'block',
+      marginBottom: 6
+    }
+  }, isExisting ? 'Your PIN' : 'Create a PIN'), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    value: pin,
+    onChange: e => {
+      setPin(e.target.value);
+      setError('');
+    },
+    onKeyDown: e => e.key === 'Enter' && handleSubmit(),
+    placeholder: "4-digit PIN",
+    autoFocus: true,
+    style: {
+      ...inputStyle,
+      marginBottom: 4,
+      letterSpacing: 4
+    }
+  }), error && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--burgundy)',
+      marginBottom: 8
+    }
+  }, error), /*#__PURE__*/React.createElement("button", {
+    className: "btn",
+    style: {
+      width: '100%',
+      justifyContent: 'center'
+    },
+    onClick: handleSubmit
+  }, isExisting ? 'Log In →' : 'Create Account →')))));
+};
+
+// ── ROOT APP ──────────────────────────────────────────────────────
+const App = () => {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [participants, setParticipants] = useState([]);
+  const [userPins, setUserPins] = useState({});
+  const [predictions, setPredictions] = useState({}); // name → {h,a,pk?}
+  const [result, setResult] = useState({}); // {h,a,pkWinner?}
+  const [bonusResult, setBonusResult] = useState(''); // first goalscorer answer
+  const [bonusPicks, setBonusPicks] = useState({}); // name → pick string
+  const [pendingUsers, setPendingUsers] = useState({});
+  const [liveMatch, setLiveMatch] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [view, setView] = useState('predict');
+  const [home, setHome] = useState(MATCH.homeTeam);
+  const [away, setAway] = useState(MATCH.awayTeam);
+  const [ready, setReady] = useState(false);
+
+  // ── LOAD INITIAL DATA ─────────────────────────────────────────
+  useEffect(() => {
+    const load = async () => {
+      const [parts, pins, preds, res, bPicks, bRes, teams] = await Promise.all([storage.get('participants'), storage.get('pins'), storage.get('predictions'), storage.get('result'), storage.get('bonus-picks'), storage.get('bonus-result'), storage.get('teams')]);
+      if (Array.isArray(parts)) setParticipants(parts);
+      if (pins && typeof pins === 'object') setUserPins(pins);
+      if (preds && typeof preds === 'object') setPredictions(preds);
+      if (res && typeof res === 'object') setResult(res);
+      if (bPicks && typeof bPicks === 'object') setBonusPicks(bPicks);
+      if (typeof bRes === 'string') setBonusResult(bRes);
+      if (teams && teams.home) {
+        setHome(teams.home);
+        setAway(teams.away || MATCH.awayTeam);
+      }
+      setReady(true);
+    };
+    load();
+  }, []);
+
+  // ── FIRESTORE LIVE LISTENERS ──────────────────────────────────
+  useEffect(() => {
+    if (!FB_ON) return;
+    const subs = [];
+    const sub = (doc, fn) => {
+      subs.push(db.collection(NS).doc(doc).onSnapshot(snap => {
+        try {
+          if (snap.exists) fn(JSON.parse(snap.data().value || 'null'));
+        } catch {}
+      }, () => {}));
+    };
+    sub('participants', d => {
+      if (Array.isArray(d)) setParticipants(d);
+    });
+    sub('pins', d => {
+      if (d && typeof d === 'object') setUserPins(d);
+    });
+    sub('predictions', d => {
+      if (d && typeof d === 'object') setPredictions(d);
+    });
+    sub('result', d => {
+      if (d && typeof d === 'object') setResult(d);
+    });
+    sub('bonus-picks', d => {
+      if (d && typeof d === 'object') setBonusPicks(d);
+    });
+    sub('bonus-result', d => {
+      if (typeof d === 'string') setBonusResult(d);
+    });
+    sub('teams', d => {
+      if (d && d.home) {
+        setHome(d.home);
+        setAway(d.away || MATCH.awayTeam);
+      }
+    });
+    sub('pending-users', d => {
+      if (d && typeof d === 'object') setPendingUsers(d);
+    });
+    return () => subs.forEach(u => u());
+  }, []);
+
+  // ── ESPN LIVE FETCH ───────────────────────────────────────────
+  const fetchLive = useCallback(async () => {
+    setLiveLoading(true);
+    try {
+      const dateStr = '20260709';
+      const r = await fetch(`${ESPN_BASE}/scoreboard?dates=${dateStr}`).then(r => r.json());
+      const matches = (r.events || []).map(ev => espnMatchToObj(ev.competitions?.[0])).filter(Boolean);
+      // Find the QF match involving our teams
+      const found = matches.find(m => {
+        const mh = normTeam(m.home),
+          ma = normTeam(m.away);
+        const hMatch = home === 'TBD' || mh === home || ma === home;
+        const aMatch = away === 'TBD' || mh === away || ma === away;
+        return hMatch && aMatch;
+      }) || matches[0] || null;
+      setLiveMatch(found);
+      // Also check manual-live override in Firestore
+      if (FB_ON) {
+        const snap = await db.collection(NS).doc('manual-live').get().catch(() => null);
+        if (snap && snap.exists) {
+          const d = JSON.parse(snap.data().value || 'null');
+          if (d && d.h != null) setLiveMatch(d);
+        }
+      }
+    } catch {}
+    setLiveLoading(false);
+  }, [home, away]);
+  useEffect(() => {
+    fetchLive();
+    const t = setInterval(fetchLive, 60000);
+    window.__refreshBanner = fetchLive;
+    return () => {
+      clearInterval(t);
+      delete window.__refreshBanner;
+    };
+  }, [fetchLive]);
+
+  // ── AUTH ──────────────────────────────────────────────────────
+  const handleLogin = async (name, pin) => {
+    const isExisting = participants.some(p => p.toLowerCase() === name.toLowerCase());
+    if (isExisting) {
+      const stored = userPins[name];
+      if (!stored) {
+        setCurrentUser(name);
+        return;
+      } // no PIN set yet
+      const hashed = await hashPin(pin, name);
+      if (stored === hashed || stored === pin) {
+        // Re-hash if stored as plaintext
+        if (stored === pin && !isHashed(stored)) {
+          const newPins = {
+            ...userPins,
+            [name]: hashed
+          };
+          setUserPins(newPins);
+          storage.set('pins', newPins);
+        }
+        setCurrentUser(name);
+      } else {
+        alert('Incorrect PIN. Please try again.');
+      }
+    } else {
+      // New user — auto-register immediately (no approval needed)
+      const hashed = await hashPin(pin, name);
+      const newParts = [...participants, name];
+      const newPins = {
+        ...userPins,
+        [name]: hashed
+      };
+      setParticipants(newParts);
+      setUserPins(newPins);
+      storage.set('participants', newParts);
+      storage.set('pins', newPins);
+      setCurrentUser(name);
+    }
+  };
+
+  // ── SAVE PREDICTION ───────────────────────────────────────────
+  const handleSavePrediction = async pred => {
+    const updated = {
+      ...predictions,
+      [currentUser]: pred
+    };
+    setPredictions(updated);
+    storage.set('predictions', updated);
+  };
+
+  // ── SAVE BONUS PICK ───────────────────────────────────────────
+  const handleSaveBonusPick = async pick => {
+    const updated = {
+      ...bonusPicks,
+      [currentUser]: pick
+    };
+    setBonusPicks(updated);
+    storage.set('bonus-picks', updated);
+  };
+
+  // ── ADMIN OPS ─────────────────────────────────────────────────
+  const handleSaveResult = async res => {
+    setResult(res);
+    storage.set('result', res);
+  };
+  const handleSaveBonusResult = async ans => {
+    setBonusResult(ans);
+    storage.set('bonus-result', ans);
+  };
+  const handleUpdateTeams = async (h, a) => {
+    setHome(h);
+    setAway(a);
+    storage.set('teams', {
+      home: h,
+      away: a
+    });
+  };
+  const handleApprovePending = async name => {
+    const entry = pendingUsers[name];
+    if (!entry) return;
+    const newParts = participants.includes(name) ? participants : [...participants, name];
+    const newPins = {
+      ...userPins,
+      [name]: entry.pin
+    };
+    const newPending = {
+      ...pendingUsers,
+      [name]: {
+        ...entry,
+        status: 'approved',
+        approvedAt: Date.now()
+      }
+    };
+    setParticipants(newParts);
+    setUserPins(newPins);
+    setPendingUsers(newPending);
+    storage.set('participants', newParts);
+    storage.set('pins', newPins);
+    storage.set('pending-users', newPending);
+  };
+  const handleRejectPending = async name => {
+    const newPending = {
+      ...pendingUsers,
+      [name]: {
+        ...pendingUsers[name],
+        status: 'rejected',
+        rejectedAt: Date.now()
+      }
+    };
+    setPendingUsers(newPending);
+    storage.set('pending-users', newPending);
+  };
+  const matchStarted = result && result.h != null && result.h !== '';
+  const predLocked = matchStarted || Date.now() > new Date(MATCH.kickoff).getTime();
+  const myPrediction = predictions[currentUser] || {};
+  const myBonusPick = bonusPicks[currentUser] || '';
+  if (!ready) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--ink-soft)'
+    }
+  }, "Loading\u2026"));
+  if (!currentUser) return /*#__PURE__*/React.createElement(LoginScreen, {
+    onLogin: handleLogin,
+    participants: participants,
+    pendingUsers: pendingUsers,
+    locked: predLocked
+  });
+  const isAdmin = currentUser === 'admin' || currentUser === 'Admin';
+  const tabs = [{
+    id: 'predict',
+    label: '🎯 Predict'
+  }, {
+    id: 'leaderboard',
+    label: '🏆 Leaderboard'
+  }, {
+    id: 'fanpicks',
+    label: '👥 Fan Picks'
+  }, {
+    id: 'bonus',
+    label: '⭐ Bonus'
+  }, ...(isAdmin ? [{
+    id: 'admin',
+    label: '⚙️ Admin'
+  }] : [])];
+  return /*#__PURE__*/React.createElement("div", {
+    className: "app"
+  }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement(LiveMatchBanner, {
+    liveMatch: liveMatch,
+    loading: liveLoading
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)',
+      color: 'white',
+      padding: '20px 16px 0'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 900,
+      margin: '0 auto'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: '.12em',
+      textTransform: 'uppercase',
+      color: 'rgba(255,255,255,.5)',
+      marginBottom: 4
+    }
+  }, "FIFA World Cup 2026 \xB7 Quarter-Final"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 24,
+      fontWeight: 800,
+      color: 'white',
+      letterSpacing: '-.02em'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: '#FFD700'
+    }
+  }, "QF Thursday"), " \xB7 Jul 9"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'rgba(255,255,255,.6)',
+      marginTop: 2,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8
+    }
+  }, home !== 'TBD' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Flag, {
+    team: home,
+    size: 14
+  }), /*#__PURE__*/React.createElement("span", null, home)), home !== 'TBD' && away !== 'TBD' && /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'rgba(255,255,255,.4)'
+    }
+  }, "vs"), away !== 'TBD' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", null, away), /*#__PURE__*/React.createElement(Flag, {
+    team: away,
+    size: 14
+  })), home === 'TBD' && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontStyle: 'italic',
+      color: 'rgba(255,255,255,.4)'
+    }
+  }, "Teams TBD"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: currentUser,
+    size: 32
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'rgba(255,255,255,.7)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      color: 'white'
+    }
+  }, currentUser), /*#__PURE__*/React.createElement("button", {
+    onClick: () => setCurrentUser(null),
+    style: {
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: 'rgba(255,255,255,.5)',
+      fontSize: 11,
+      padding: 0,
+      fontFamily: 'inherit'
+    }
+  }, "Sign out")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 0,
+      overflowX: 'auto'
+    }
+  }, tabs.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t.id,
+    onClick: () => setView(t.id),
+    style: {
+      padding: '8px 14px',
+      border: 'none',
+      background: 'none',
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      fontSize: 13,
+      fontWeight: 600,
+      color: view === t.id ? 'white' : 'rgba(255,255,255,.5)',
+      borderBottom: `2px solid ${view === t.id ? '#FFD700' : 'transparent'}`,
+      transition: 'all .15s',
+      whiteSpace: 'nowrap'
+    }
+  }, t.label))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      maxWidth: 900,
+      margin: '0 auto',
+      padding: '20px 16px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: view === 'predict' ? '1fr 280px' : '1fr',
+      gap: 16,
+      alignItems: 'start'
+    }
+  }, /*#__PURE__*/React.createElement("div", null, view === 'predict' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(PredictionSpotlight, {
+    participants: participants,
+    predictions: predictions,
+    result: result,
+    home: home,
+    away: away
+  }), /*#__PURE__*/React.createElement(PredictionView, {
+    currentUser: currentUser,
+    prediction: myPrediction,
+    onSave: handleSavePrediction,
+    result: result,
+    home: home,
+    away: away,
+    locked: predLocked
+  })), view === 'leaderboard' && /*#__PURE__*/React.createElement(LeaderboardView, {
+    participants: participants,
+    predictions: predictions,
+    result: result,
+    currentUser: currentUser,
+    home: home,
+    away: away
+  }), view === 'fanpicks' && /*#__PURE__*/React.createElement(FanPicksView, {
+    participants: participants,
+    predictions: predictions,
+    result: result,
+    home: home,
+    away: away
+  }), view === 'bonus' && /*#__PURE__*/React.createElement(BonusPickView, {
+    currentUser: currentUser,
+    bonusPick: myBonusPick,
+    onSaveBonusPick: handleSaveBonusPick,
+    bonusResult: bonusResult,
+    locked: predLocked,
+    home: home,
+    away: away
+  }), view === 'admin' && isAdmin && /*#__PURE__*/React.createElement(AdminView, {
+    participants: participants,
+    predictions: predictions,
+    result: result,
+    onSaveResult: handleSaveResult,
+    bonusResult: bonusResult,
+    onSaveBonusResult: handleSaveBonusResult,
+    home: home,
+    away: away,
+    onUpdateTeams: handleUpdateTeams,
+    pendingUsers: pendingUsers,
+    onApprovePending: handleApprovePending,
+    onRejectPending: handleRejectPending
+  })), view === 'predict' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(SharpShooters, {
+    participants: participants,
+    predictions: predictions,
+    result: result
+  }), /*#__PURE__*/React.createElement(FanZone, {
+    participants: participants,
+    predictions: predictions,
+    home: home,
+    away: away
+  })))));
+};
+ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));
+</script>
+</body>
+</html>
