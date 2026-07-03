@@ -3667,6 +3667,12 @@ const AdminView = ({
     setBFirstTeam(bonusAnswers.firstTeam || '');
   }, [bonusAnswers]);
   useEffect(() => {
+    setCHY(String(liveGoals?.cards?.hY ?? ''));
+    setCHR(String(liveGoals?.cards?.hR ?? ''));
+    setCAY(String(liveGoals?.cards?.aY ?? ''));
+    setCAR(String(liveGoals?.cards?.aR ?? ''));
+  }, [liveGoals]);
+  useEffect(() => {
     setNewHome(home);
     setNewAway(away);
   }, [home, away]);
@@ -4786,76 +4792,150 @@ const AdminView = ({
     className: "card"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontWeight: 700,
-      fontSize: 14,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       marginBottom: 12
     }
-  }, "\uD83D\uDFE8\uD83D\uDFE5 Actual Cards"), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 14
+    }
+  }, "\uD83D\uDFE8\uD83D\uDFE5 Actual Cards"), liveGoals?.cards && Object.values(liveGoals.cards).some(v => v > 0) && /*#__PURE__*/React.createElement("button", {
+    onClick: async () => {
+      if (!window.confirm('Clear all card data?')) return;
+      setCHY('');
+      setCHR('');
+      setCAY('');
+      setCAR('');
+      await onSaveLiveGoals({
+        ...liveGoals,
+        cards: {
+          hY: 0,
+          hR: 0,
+          aY: 0,
+          aR: 0
+        }
+      });
+    },
+    style: {
+      background: 'rgba(159,27,27,.07)',
+      color: 'var(--burgundy)',
+      border: '1px solid var(--burgundy)',
+      borderRadius: 4,
+      padding: '4px 10px',
+      fontSize: 11,
+      fontWeight: 700,
+      cursor: 'pointer'
+    }
+  }, "\uD83D\uDDD1 Clear Cards")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: '1fr 1fr',
-      gap: 12,
-      marginBottom: 12
+      gap: 16,
+      marginBottom: 14
     }
-  }, [[home, 'h'], [away, 'a']].filter(([t]) => t && t !== 'TBD').map(([team, pfx]) => /*#__PURE__*/React.createElement("div", {
-    key: pfx
+  }, [[home, 'h', cHY, setCHY, cHR, setCHR], [away, 'a', cAY, setCAY, cAR, setCAR]].filter(([t]) => t && t !== 'TBD').map(([team, pfx, yellow, setYellow, red, setRed]) => /*#__PURE__*/React.createElement("div", {
+    key: pfx,
+    className: "card",
+    style: {
+      padding: 12,
+      background: 'var(--cream2)',
+      border: '1px solid var(--line)'
+    }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11,
-      fontWeight: 600,
-      marginBottom: 6,
+      fontSize: 12,
+      fontWeight: 700,
+      marginBottom: 10,
       display: 'flex',
       alignItems: 'center',
-      gap: 4
+      gap: 5
     }
   }, /*#__PURE__*/React.createElement(Flag, {
     team: team,
-    size: 12
+    size: 14
   }), team), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
-      gap: 6,
+      gap: 10,
       alignItems: 'center'
     }
-  }, /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 13
+      textAlign: 'center',
+      flex: 1
     }
-  }, "\uD83D\uDFE8"), /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 600,
+      color: 'var(--ink-soft)',
+      marginBottom: 4
+    }
+  }, "\uD83D\uDFE8 Yellow"), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: "0",
     max: "15",
-    value: pfx === 'h' ? cHY : cAY,
-    onChange: e => pfx === 'h' ? setCHY(e.target.value) : setCAY(e.target.value),
+    value: yellow,
+    onChange: e => setYellow(e.target.value),
     style: {
-      width: 44,
-      padding: '6px',
+      width: '100%',
+      padding: '8px',
       textAlign: 'center',
       border: '1px solid var(--line)',
       borderRadius: 4,
       fontFamily: 'inherit',
-      fontSize: 13
+      fontSize: 16,
+      fontWeight: 700,
+      boxSizing: 'border-box'
     }
-  }), /*#__PURE__*/React.createElement("span", {
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 13
+      textAlign: 'center',
+      flex: 1
     }
-  }, "\uD83D\uDFE5"), /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 600,
+      color: 'var(--ink-soft)',
+      marginBottom: 4
+    }
+  }, "\uD83D\uDFE5 Red"), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: "0",
     max: "5",
-    value: pfx === 'h' ? cHR : cAR,
-    onChange: e => pfx === 'h' ? setCHR(e.target.value) : setCAR(e.target.value),
+    value: red,
+    onChange: e => setRed(e.target.value),
     style: {
-      width: 44,
-      padding: '6px',
+      width: '100%',
+      padding: '8px',
       textAlign: 'center',
       border: '1px solid var(--line)',
       borderRadius: 4,
       fontFamily: 'inherit',
-      fontSize: 13
+      fontSize: 16,
+      fontWeight: 700,
+      boxSizing: 'border-box'
     }
-  }))))), /*#__PURE__*/React.createElement("button", {
+  })))))), liveGoals?.cards && Object.values(liveGoals.cards).some(v => v > 0) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 12,
+      padding: '8px 12px',
+      background: 'rgba(27,94,63,.05)',
+      border: '1px solid rgba(27,94,63,.2)',
+      borderRadius: 5,
+      fontSize: 12,
+      color: 'var(--ink-soft)'
+    }
+  }, "\u2705 Saved: ", home, " \uD83D\uDFE8", liveGoals.cards.hY || 0, " \uD83D\uDFE5", liveGoals.cards.hR || 0, " \xB7 ", away, " \uD83D\uDFE8", liveGoals.cards.aY || 0, " \uD83D\uDFE5", liveGoals.cards.aR || 0), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
     className: "btn btn-amber",
     onClick: async () => {
       await onSaveLiveGoals({
@@ -4867,13 +4947,26 @@ const AdminView = ({
           aR: parseInt(cAR) || 0
         }
       });
-      alert('Cards saved.');
     },
     style: {
-      width: '100%',
+      flex: 1,
       justifyContent: 'center'
     }
-  }, "\uD83D\uDCBE Save Cards"))));
+  }, "\uD83D\uDCBE Save Cards"), /*#__PURE__*/React.createElement("button", {
+    className: "btn",
+    onClick: () => {
+      setCHY('');
+      setCHR('');
+      setCAY('');
+      setCAR('');
+    },
+    style: {
+      justifyContent: 'center',
+      background: 'var(--cream2)',
+      color: 'var(--ink)',
+      border: '1px solid var(--line)'
+    }
+  }, "\u21BA Reset")))));
 };
 
 // ── LOGIN SCREEN ──────────────────────────────────────────────────
