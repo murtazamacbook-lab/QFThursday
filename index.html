@@ -1766,19 +1766,18 @@ const PredictView = ({
   const [savedBonus, setSavedBonus] = useState(false);
   const bonusAutoRef = React.useRef(false);
   useEffect(() => {
-    if (prediction) {
-      setH(String(prediction.h ?? ''));
-      setA(String(prediction.a ?? ''));
-      setPk(prediction.pk || '');
-      setHGoals(prediction.hGoals || []);
-      setAGoals(prediction.aGoals || []);
-      setCards(prediction.cards || {
-        hY: '',
-        hR: '',
-        aY: '',
-        aR: ''
-      });
-    }
+    if (prediction === null) return; // no saved prediction — don't reset what user is typing
+    setH(String(prediction.h ?? ''));
+    setA(String(prediction.a ?? ''));
+    setPk(prediction.pk || '');
+    setHGoals(prediction.hGoals || []);
+    setAGoals(prediction.aGoals || []);
+    setCards(prediction.cards || {
+      hY: '',
+      hR: '',
+      aY: '',
+      aR: ''
+    });
   }, [prediction]);
   useEffect(() => {
     setScorer(bonusPick.scorer || '');
@@ -6288,7 +6287,7 @@ const App = () => {
     return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
   })();
   const urgentWarn = showWarn && msToLock <= 5 * 60 * 1000; // bright red at 5 min
-  const myPred = predictions[currentUser] || {};
+  const myPred = useMemo(() => predictions[currentUser] ?? null, [predictions, currentUser]);
   if (!ready) return /*#__PURE__*/React.createElement("div", {
     style: {
       minHeight: '100vh',
