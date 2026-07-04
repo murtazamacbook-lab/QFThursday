@@ -120,6 +120,13 @@ const parseMinSec = t => {
   const [m, s] = (t || '').split(':').map(Number);
   return isNaN(m) || isNaN(s) ? null : m * 60 + s;
 };
+// Auto-format raw digit input → MM:SS (e.g. 330→03:30, 0300→03:00, 1234→12:34)
+const fmtTime = raw => {
+  const d = raw.replace(/\D/g, '').slice(0, 4);
+  if (!d) return '';
+  const p = d.padStart(4, '0');
+  return `${p.slice(0, 2)}:${p.slice(2)}`;
+};
 
 // Compute pts from goal-time/scorer/card detail predictions against admin-entered live goals
 function computeGoalDetailPts(pred = {}, lg = {}) {
@@ -2712,6 +2719,10 @@ const PredictView = ({
           ...x,
           time: e.target.value
         } : x)),
+        onBlur: e => !locked && setHGoals(p => p.map((x, j) => j === i ? {
+          ...x,
+          time: fmtTime(e.target.value)
+        } : x)),
         readOnly: locked,
         placeholder: "MM:SS",
         style: {
@@ -2781,6 +2792,10 @@ const PredictView = ({
         onChange: e => !locked && setAGoals(p => p.map((x, j) => j === i ? {
           ...x,
           time: e.target.value
+        } : x)),
+        onBlur: e => !locked && setAGoals(p => p.map((x, j) => j === i ? {
+          ...x,
+          time: fmtTime(e.target.value)
         } : x)),
         readOnly: locked,
         placeholder: "MM:SS",
@@ -3207,6 +3222,7 @@ const PredictView = ({
     }, "MM:SS \u2014 closest within 30s earns pts"), /*#__PURE__*/React.createElement("input", {
       value: goalTime,
       onChange: e => setGoalTime(e.target.value),
+      onBlur: e => setGoalTime(fmtTime(e.target.value)),
       disabled: locked,
       placeholder: "23:15",
       style: {
@@ -4281,7 +4297,8 @@ const BonusPickView = ({
   }, "You were ", timeDiff, "s off \xB7 ", timeDiff <= 30 ? `+${SCORE_BONUS_GOAL_TIME} pts (within 30s!)` : timeDiff <= 60 ? 'within 1 min' : 'no pts'), /*#__PURE__*/React.createElement("input", {
     value: goalTime,
     onChange: e => setGoalTime(e.target.value),
-    disabled: locked || !!bonusAnswers.goalTime,
+    onBlur: e => setGoalTime(fmtTime(e.target.value)),
+    disabled: locked,
     placeholder: "MM:SS",
     style: {
       ...inputStyle,
@@ -5424,6 +5441,7 @@ const AdminView = ({
   }), t))) : /*#__PURE__*/React.createElement("input", {
     value: val,
     onChange: e => set(e.target.value),
+    onBlur: e => label.includes('Goal Time') && set(fmtTime(e.target.value)),
     placeholder: ph,
     style: {
       width: '100%',
@@ -5913,6 +5931,7 @@ const AdminView = ({
   }, "Time (MM:SS)"), /*#__PURE__*/React.createElement("input", {
     value: newGoalTime,
     onChange: e => setNewGoalTime(e.target.value),
+    onBlur: e => setNewGoalTime(fmtTime(e.target.value)),
     placeholder: "e.g. 23:10",
     style: {
       width: '100%',
@@ -6158,6 +6177,7 @@ const AdminView = ({
     }, "Time (MM:SS)"), /*#__PURE__*/React.createElement("input", {
       value: editGoalTime,
       onChange: e => setEditGoalTime(e.target.value),
+      onBlur: e => setEditGoalTime(fmtTime(e.target.value)),
       placeholder: "23:10",
       style: {
         width: '100%',
