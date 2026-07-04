@@ -164,7 +164,7 @@ const SCORE_GOAL_TIME_5 = 10; // Predicted goal time within 5 min
 const SCORE_GOAL_TIME_10 = 5; // Predicted goal time within 10 min
 const SCORE_GOAL_SCORER = 8; // Correct goal scorer
 const SCORE_CARDS_RIGHT = 3; // Correct card count (per team per type)
-const SCORE_FOULS_RIGHT = 3; // Correct foul count (per team)
+const SCORE_FOULS_RIGHT = 8; // Correct foul count (per team)
 
 const parseMinSec = t => {
   if (!t) return null;
@@ -239,7 +239,7 @@ function computeGoalDetailPts(pred = {}, lg = {}) {
   const af = lg.fouls || {};
   const pf = pred.fouls || {};
   [['hF', 'Home Fouls'], ['aF', 'Away Fouls']].forEach(([k, label]) => {
-    if (af[k] != null && pf[k] !== '' && pf[k] != null && parseInt(pf[k]) === parseInt(af[k])) {
+    if (af[k] != null && af[k] > 0 && pf[k] !== '' && pf[k] != null && parseInt(pf[k]) === parseInt(af[k])) {
       pts += SCORE_FOULS_RIGHT;
       items.push({
         label: `Fouls: ${label} correct`,
