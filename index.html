@@ -3141,7 +3141,7 @@ const PredictView = ({
       onChange: setScorer,
       home: home,
       away: away,
-      disabled: locked || !!bonusAnswers.scorer,
+      disabled: locked,
       placeholder: "e.g. Kylian Mbapp\xE9",
       inputStyle: {
         width: '100%',
@@ -3150,7 +3150,7 @@ const PredictView = ({
         fontFamily: 'inherit',
         fontSize: 13,
         boxSizing: 'border-box',
-        background: locked || bonusAnswers.scorer ? 'var(--cream2)' : 'white'
+        background: locked ? 'var(--cream2)' : 'white'
       }
     })), /*#__PURE__*/React.createElement("div", {
       style: {
@@ -3207,18 +3207,18 @@ const PredictView = ({
     }, "MM:SS \u2014 closest within 30s earns pts"), /*#__PURE__*/React.createElement("input", {
       value: goalTime,
       onChange: e => setGoalTime(e.target.value),
-      disabled: locked || !!bonusAnswers.goalTime,
+      disabled: locked,
       placeholder: "23:15",
       style: {
         width: '100%',
         padding: '9px 12px',
-        border: `1px solid ${goalTime && !bonusAnswers.goalTime ? 'var(--forest)' : 'var(--line)'}`,
+        border: `1px solid ${goalTime ? 'var(--forest)' : 'var(--line)'}`,
         borderRadius: 4,
         fontFamily: 'JetBrains Mono,monospace',
         fontSize: 13,
         boxSizing: 'border-box',
         letterSpacing: 2,
-        background: locked || bonusAnswers.goalTime ? 'var(--cream2)' : 'white'
+        background: locked ? 'var(--cream2)' : 'white'
       }
     })), /*#__PURE__*/React.createElement("div", {
       style: {
@@ -3272,14 +3272,14 @@ const PredictView = ({
       }
     }, [home, away].filter(t => t && t !== 'TBD').map(t => /*#__PURE__*/React.createElement("button", {
       key: t,
-      onClick: () => !locked && !bonusAnswers.firstTeam && setFirstTeam(t),
+      onClick: () => !locked && setFirstTeam(t),
       style: {
         flex: 1,
         padding: '9px',
         borderRadius: 6,
         border: `2px solid ${firstTeam === t ? 'var(--amber)' : 'var(--line)'}`,
         background: firstTeam === t ? 'rgba(214,137,42,.1)' : 'white',
-        cursor: locked || bonusAnswers.firstTeam ? 'default' : 'pointer',
+        cursor: locked ? 'default' : 'pointer',
         fontFamily: 'inherit',
         fontSize: 13,
         fontWeight: firstTeam === t ? 700 : 500,
@@ -4477,6 +4477,22 @@ const BackupPanel = ({
   const [backupTs, setBackupTs] = useState(null);
   const [restoreUser, setRestoreUser] = useState('');
   const [restoreMsg, setRestoreMsg] = useState('');
+  const [savingCloud, setSavingCloud] = useState(false);
+  const [loadingCloud, setLoadingCloud] = useState(false);
+  const [cloudTs, setCloudTs] = useState(null);
+
+  // Load cloud backup timestamp on mount
+  useEffect(() => {
+    if (!FB_ON) return;
+    db.collection(NS).doc('backup-snapshot').get().then(snap => {
+      if (snap.exists) {
+        try {
+          const d = JSON.parse(snap.data().value || 'null');
+          if (d?.ts) setCloudTs(new Date(d.ts).toLocaleString());
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
   const doBackup = () => {
     const snap = {
       ts: Date.now(),
@@ -4492,6 +4508,65 @@ const BackupPanel = ({
     setBackupTs(new Date().toLocaleTimeString());
     setRestoreMsg('');
   };
+  const saveToCloud = async () => {
+    const snap = {
+      ts: Date.now(),
+      predictions: {
+        ...predictions
+      },
+      bonusPicks: {
+        ...bonusPicks
+      },
+      participants: [...participants]
+    };
+    setBackupData(snap);
+    setBackupTs(new Date().toLocaleTimeString());
+    if (!FB_ON) {
+      setRestoreMsg('❌ Firebase not connected.');
+      return;
+    }
+    setSavingCloud(true);
+    setRestoreMsg('');
+    try {
+      await db.collection(NS).doc('backup-snapshot').set({
+        value: JSON.stringify(snap)
+      });
+      setCloudTs(new Date(snap.ts).toLocaleString());
+      setRestoreMsg('✅ Backup saved to Firestore.');
+    } catch (e) {
+      setRestoreMsg('❌ Cloud save failed: ' + e.message);
+    }
+    setSavingCloud(false);
+  };
+  const loadFromCloud = async () => {
+    if (!FB_ON) {
+      setRestoreMsg('❌ Firebase not connected.');
+      return;
+    }
+    setLoadingCloud(true);
+    setRestoreMsg('');
+    try {
+      const snap = await db.collection(NS).doc('backup-snapshot').get();
+      if (!snap.exists) {
+        setRestoreMsg('❌ No cloud backup found.');
+        setLoadingCloud(false);
+        return;
+      }
+      const d = JSON.parse(snap.data().value || 'null');
+      if (!d) {
+        setRestoreMsg('❌ Backup data is empty.');
+        setLoadingCloud(false);
+        return;
+      }
+      setBackupData(d);
+      setBackupTs(new Date(d.ts).toLocaleTimeString());
+      setCloudTs(new Date(d.ts).toLocaleString());
+      setRestoreMsg(`✅ Loaded from Firestore — ${Object.keys(d.predictions || {}).length} predictions, ${Object.keys(d.bonusPicks || {}).length} bonus picks (saved ${new Date(d.ts).toLocaleString()}).`);
+    } catch (e) {
+      setRestoreMsg('❌ Load failed: ' + e.message);
+    }
+    setLoadingCloud(false);
+  };
   const downloadBackup = () => {
     if (!backupData) return;
     const blob = new Blob([JSON.stringify(backupData, null, 2)], {
@@ -4504,7 +4579,7 @@ const BackupPanel = ({
   };
   const doRestore = async name => {
     if (!backupData) {
-      setRestoreMsg('❌ No backup loaded — take a snapshot first.');
+      setRestoreMsg('❌ No backup loaded — take a snapshot or load from Firestore first.');
       return;
     }
     const targets = name ? [name] : participants;
@@ -4534,7 +4609,7 @@ const BackupPanel = ({
       color: 'var(--ink-soft)',
       marginBottom: 16
     }
-  }, "Snapshot all predictions & bonus picks. Download as JSON or restore to Firestore if data is lost."), /*#__PURE__*/React.createElement("div", {
+  }, "Snapshot predictions & bonus picks to Firestore (survives page refresh) or download as JSON."), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 16,
       padding: '12px 14px',
@@ -4548,7 +4623,13 @@ const BackupPanel = ({
       fontSize: 13,
       marginBottom: 8
     }
-  }, "\uD83D\uDCF8 Snapshot current data"), /*#__PURE__*/React.createElement("div", {
+  }, "\u2601\uFE0F Firestore backup"), cloudTs && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-soft)',
+      marginBottom: 8
+    }
+  }, "Last cloud save: ", /*#__PURE__*/React.createElement("strong", null, cloudTs)), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 8,
@@ -4556,11 +4637,58 @@ const BackupPanel = ({
     }
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn btn-green",
+    onClick: saveToCloud,
+    disabled: savingCloud,
+    style: {
+      flex: 1,
+      justifyContent: 'center',
+      minWidth: 140
+    }
+  }, savingCloud ? '⏳ Saving…' : '☁️ Save to Firestore'), /*#__PURE__*/React.createElement("button", {
+    className: "btn",
+    onClick: loadFromCloud,
+    disabled: loadingCloud,
+    style: {
+      flex: 1,
+      justifyContent: 'center',
+      minWidth: 140,
+      background: '#2980b9'
+    }
+  }, loadingCloud ? '⏳ Loading…' : '⬇️ Load from Firestore')), backupTs && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--forest)',
+      marginTop: 8,
+      fontWeight: 600
+    }
+  }, "\u2705 In-memory snapshot: ", backupTs, " \u2014 ", Object.keys(backupData?.predictions || {}).length, " predictions, ", Object.keys(backupData?.bonusPicks || {}).length, " bonus picks")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16,
+      padding: '12px 14px',
+      background: 'rgba(41,128,185,.04)',
+      border: '1px solid rgba(41,128,185,.2)',
+      borderRadius: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 600,
+      fontSize: 13,
+      marginBottom: 8
+    }
+  }, "\uD83D\uDCF8 Local snapshot & download"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn",
     onClick: doBackup,
     style: {
       flex: 1,
       justifyContent: 'center',
-      minWidth: 120
+      minWidth: 120,
+      background: 'var(--ink)'
     }
   }, "\uD83D\uDCF8 Take Snapshot"), /*#__PURE__*/React.createElement("button", {
     className: "btn",
@@ -4569,16 +4697,10 @@ const BackupPanel = ({
     style: {
       flex: 1,
       justifyContent: 'center',
-      minWidth: 120
+      minWidth: 120,
+      background: 'var(--ink-soft)'
     }
-  }, "\u2B07\uFE0F Download JSON")), backupTs && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: 'var(--forest)',
-      marginTop: 8,
-      fontWeight: 600
-    }
-  }, "\u2705 Snapshot at ", backupTs, " \u2014 ", Object.keys(backupData?.predictions || {}).length, " predictions, ", Object.keys(backupData?.bonusPicks || {}).length, " bonus picks")), /*#__PURE__*/React.createElement("div", {
+  }, "\u2B07\uFE0F Download JSON"))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 16,
       padding: '12px 14px',
@@ -4646,23 +4768,13 @@ const BackupPanel = ({
     style: {
       marginTop: 12,
       padding: '10px 14px',
-      background: 'rgba(27,94,63,.08)',
+      background: restoreMsg.startsWith('❌') ? 'rgba(159,27,27,.08)' : 'rgba(27,94,63,.08)',
       borderRadius: 6,
       fontSize: 13,
       fontWeight: 600,
-      color: 'var(--forest)'
+      color: restoreMsg.startsWith('❌') ? 'var(--burgundy)' : 'var(--forest)'
     }
-  }, restoreMsg), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 12,
-      padding: '8px 12px',
-      background: 'rgba(159,27,27,.06)',
-      borderRadius: 6,
-      border: '1px solid rgba(159,27,27,.2)',
-      fontSize: 11,
-      color: 'var(--ink-soft)'
-    }
-  }, "\u26A0\uFE0F Snapshot is in-memory only \u2014 resets on page refresh. Download JSON for a permanent copy."));
+  }, restoreMsg));
 };
 
 // ── ADMIN VIEW ────────────────────────────────────────────────────
