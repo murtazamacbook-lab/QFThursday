@@ -495,7 +495,7 @@ const CSS = `
   .fadein{animation:fadein .25s ease;}
   .scrollbar::-webkit-scrollbar{width:4px;height:4px;}.scrollbar::-webkit-scrollbar-track{background:transparent;}.scrollbar::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px;}
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}
-  .page-grid{display:grid;grid-template-columns:270px 1fr 260px;gap:20px;max-width:1280px;margin:0 auto;padding:20px 16px;align-items:start;}
+  .page-grid{display:grid;grid-template-columns:230px 1fr 230px;gap:20px;max-width:1440px;margin:0 auto;padding:20px 16px;align-items:start;}
   .page-grid>*{min-width:0;}
   .page-grid>main{min-height:calc(100vh - 150px);}
   .sidebar-left,.sidebar-right{position:sticky;top:148px;align-self:start;}
@@ -506,7 +506,7 @@ const CSS = `
   .hdr-title{font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.15;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .hdr-user{display:flex;align-items:center;gap:10px;font-size:13px;flex-shrink:0;}
   .goal-grid{display:grid;grid-template-columns:90px 1fr 1fr auto;gap:6px;margin-bottom:6px;align-items:center;}
-  @media(max-width:1100px){.page-grid{grid-template-columns:240px 1fr;}}
+  @media(max-width:1100px){.page-grid{grid-template-columns:210px 1fr;}}
   @media(max-width:800px){
     .page-grid{grid-template-columns:1fr;padding:12px 10px;gap:12px;}
     .sidebar-left,.sidebar-right{position:static;}
@@ -2068,7 +2068,9 @@ const PredictView = ({
       hGoals: hGoals.filter(g => g.time || g.scorer),
       aGoals: aGoals.filter(g => g.time || g.scorer),
       cards: Object.fromEntries(Object.entries(cards).filter(([, v]) => v !== '' && v != null)),
-      fouls: Object.fromEntries(Object.entries(fouls).filter(([, v]) => v !== '' && v != null))
+      fouls: Object.fromEntries(Object.entries(fouls).filter(([, v]) => v !== '' && v != null)),
+      // Preserve original timestamp — only set on first ever save
+      savedAt: prediction?.savedAt || Date.now()
     });
     setSaving(false);
     setSaved(true);
@@ -3562,9 +3564,10 @@ const LeaderboardView = ({
         detailPts: detailPts.total,
         detailItems: detailPts.items,
         total: grandTotal,
-        hasPred: !!(predictions[name] && predictions[name].h != null && predictions[name].h !== '')
+        hasPred: !!(predictions[name] && predictions[name].h != null && predictions[name].h !== ''),
+        savedAt: predictions[name]?.savedAt || null
       };
-    }).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+    }).sort((a, b) => b.total - a.total || (a.savedAt && b.savedAt ? a.savedAt - b.savedAt : a.savedAt ? -1 : b.savedAt ? 1 : 0) || a.name.localeCompare(b.name));
   }, [participants, predictions, result, bonusPicks, bonusAnswers, home, away, liveGoals]);
   const maxScore = Math.max(...scores.map(s => s.total), 1);
   const withPreds = scores.filter(s => s.hasPred).length;
@@ -3598,80 +3601,92 @@ const LeaderboardView = ({
       flexDirection: 'column',
       gap: 8
     }
-  }, scores.map((s, i) => /*#__PURE__*/React.createElement("div", {
-    key: s.name,
-    className: "card",
-    style: {
-      padding: '14px 18px',
-      borderLeft: i === 0 ? '3px solid var(--amber)' : i === 1 ? '3px solid #9b9087' : i === 2 ? '3px solid #8b6e4e' : '3px solid transparent',
-      opacity: 1
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 12
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 20,
-      minWidth: 28,
-      textAlign: 'center'
-    }
-  }, ['🥇', '🥈', '🥉'][i] || /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 14,
-      color: 'var(--ink-soft)',
-      fontWeight: 600
-    }
-  }, i + 1)), /*#__PURE__*/React.createElement(Avatar, {
-    name: s.name,
-    size: 36
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 700,
-      fontSize: 14,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6
-    }
-  }, s.name, s.name === currentUser && /*#__PURE__*/React.createElement("span", {
-    className: "pill",
-    style: {
-      fontSize: 9
-    }
-  }, "you"), !s.hasPred && /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 9,
-      fontWeight: 600,
-      color: 'var(--ink-soft)',
-      background: 'var(--cream2)',
-      border: '1px solid var(--line)',
-      borderRadius: 3,
-      padding: '1px 5px'
-    }
-  }, "no picks yet")), s.hasPred && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: 'var(--ink-soft)',
-      marginTop: 2
-    }
-  }, "Predicted: ", /*#__PURE__*/React.createElement("span", {
-    className: "mono",
-    style: {
-      fontWeight: 700
-    }
-  }, predictions[s.name].h, "\u2013", predictions[s.name].a))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: 'right',
-      color: 'var(--ink-soft)',
-      fontSize: 12
-    }
-  }, "\u2014"))))), hasResult && /*#__PURE__*/React.createElement("div", {
+  }, scores.map((s, i) => {
+    const submittedAt = s.savedAt ? new Date(s.savedAt).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    }) : null;
+    return /*#__PURE__*/React.createElement("div", {
+      key: s.name,
+      className: "card",
+      style: {
+        padding: '14px 18px',
+        borderLeft: i === 0 ? '3px solid var(--amber)' : i === 1 ? '3px solid #9b9087' : i === 2 ? '3px solid #8b6e4e' : '3px solid transparent',
+        opacity: 1
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 20,
+        minWidth: 28,
+        textAlign: 'center'
+      }
+    }, ['🥇', '🥈', '🥉'][i] || /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 14,
+        color: 'var(--ink-soft)',
+        fontWeight: 600
+      }
+    }, i + 1)), /*#__PURE__*/React.createElement(Avatar, {
+      name: s.name,
+      size: 36
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 700,
+        fontSize: 14,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6
+      }
+    }, s.name, s.name === currentUser && /*#__PURE__*/React.createElement("span", {
+      className: "pill",
+      style: {
+        fontSize: 9
+      }
+    }, "you"), !s.hasPred && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 600,
+        color: 'var(--ink-soft)',
+        background: 'var(--cream2)',
+        border: '1px solid var(--line)',
+        borderRadius: 3,
+        padding: '1px 5px'
+      }
+    }, "no picks yet")), s.hasPred && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-soft)',
+        marginTop: 2
+      }
+    }, "Predicted: ", /*#__PURE__*/React.createElement("span", {
+      className: "mono",
+      style: {
+        fontWeight: 700
+      }
+    }, predictions[s.name].h, "\u2013", predictions[s.name].a)), submittedAt && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: 'var(--ink-soft)',
+        marginTop: 2
+      }
+    }, "\uD83D\uDD50 ", submittedAt)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'right',
+        color: 'var(--ink-soft)',
+        fontSize: 12
+      }
+    }, "\u2014")));
+  })), hasResult && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       flexDirection: 'column',
@@ -3682,6 +3697,10 @@ const LeaderboardView = ({
     const aRes = parseInt(result.h) > parseInt(result.a) ? 'H' : parseInt(result.a) > parseInt(result.h) ? 'A' : 'D';
     const pRes = parseInt(pred.h) > parseInt(pred.a) ? 'H' : parseInt(pred.a) > parseInt(pred.h) ? 'A' : 'D';
     const isDraw = aRes === 'D';
+    const submittedAt = s.savedAt ? new Date(s.savedAt).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    }) : null;
     // Build pts breakdown rows
     const breakdown = [];
     if (s.hasPred) {
@@ -3845,7 +3864,13 @@ const LeaderboardView = ({
         marginTop: 3,
         fontStyle: 'italic'
       }
-    }, "No prediction entered"), /*#__PURE__*/React.createElement("div", {
+    }, "No prediction entered"), submittedAt && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: 'var(--ink-soft)',
+        marginTop: 3
+      }
+    }, "\uD83D\uDD50 ", submittedAt), /*#__PURE__*/React.createElement("div", {
       style: {
         height: 3,
         background: 'var(--cream2)',
