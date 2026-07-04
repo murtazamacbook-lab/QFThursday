@@ -164,6 +164,7 @@ const SCORE_GOAL_TIME_5 = 10; // Predicted goal time within 5 min
 const SCORE_GOAL_TIME_10 = 5; // Predicted goal time within 10 min
 const SCORE_GOAL_SCORER = 8; // Correct goal scorer
 const SCORE_CARDS_RIGHT = 3; // Correct card count (per team per type)
+const SCORE_FOULS_RIGHT = 3; // Correct foul count (per team)
 
 const parseMinSec = t => {
   if (!t) return null;
@@ -232,6 +233,17 @@ function computeGoalDetailPts(pred = {}, lg = {}) {
       items.push({
         label: `Cards: ${label} correct`,
         pts: SCORE_CARDS_RIGHT
+      });
+    }
+  });
+  const af = lg.fouls || {};
+  const pf = pred.fouls || {};
+  [['hF', 'Home Fouls'], ['aF', 'Away Fouls']].forEach(([k, label]) => {
+    if (af[k] != null && pf[k] !== '' && pf[k] != null && parseInt(pf[k]) === parseInt(af[k])) {
+      pts += SCORE_FOULS_RIGHT;
+      items.push({
+        label: `Fouls: ${label} correct`,
+        pts: SCORE_FOULS_RIGHT
       });
     }
   });
@@ -1977,6 +1989,10 @@ const PredictView = ({
     aY: '',
     aR: ''
   });
+  const [fouls, setFouls] = useState({
+    hF: '',
+    aF: ''
+  });
   const [scorer, setScorer] = useState('');
   const [goalTime, setGoalTime] = useState('');
   const [firstTeam, setFirstTeam] = useState('');
@@ -1996,6 +2012,10 @@ const PredictView = ({
       hR: '',
       aY: '',
       aR: ''
+    });
+    setFouls(prediction.fouls || {
+      hF: '',
+      aF: ''
     });
   }, [prediction]);
   useEffect(() => {
@@ -2047,7 +2067,8 @@ const PredictView = ({
       } : {}),
       hGoals: hGoals.filter(g => g.time || g.scorer),
       aGoals: aGoals.filter(g => g.time || g.scorer),
-      cards: Object.fromEntries(Object.entries(cards).filter(([, v]) => v !== '' && v != null))
+      cards: Object.fromEntries(Object.entries(cards).filter(([, v]) => v !== '' && v != null)),
+      fouls: Object.fromEntries(Object.entries(fouls).filter(([, v]) => v !== '' && v != null))
     });
     setSaving(false);
     setSaved(true);
@@ -2065,6 +2086,10 @@ const PredictView = ({
       hR: '',
       aY: '',
       aR: ''
+    });
+    setFouls({
+      hF: '',
+      aF: ''
     });
     setSaving(true);
     await onSave({});
@@ -2086,12 +2111,13 @@ const PredictView = ({
       pk,
       hGoals,
       aGoals,
-      cards
+      cards,
+      fouls
     };
     const detail = computeGoalDetailPts(pred, liveGoals).total;
     const bonus = computeBonusPts(bonusPick || {}, bonusAnswers);
     return base + detail + bonus;
-  }, [h, a, pk, hGoals, aGoals, cards, result, home, away, hasResult, liveGoals, bonusPick, bonusAnswers]);
+  }, [h, a, pk, hGoals, aGoals, cards, fouls, result, home, away, hasResult, liveGoals, bonusPick, bonusAnswers]);
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
@@ -2233,6 +2259,39 @@ const PredictView = ({
       fontFamily: 'JetBrains Mono,monospace'
     }
   }, "+", SCORE_CARDS_RIGHT, " pts")))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8,
+      paddingTop: 8,
+      borderTop: '1px solid var(--line)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: '#e67e22',
+      marginBottom: 6
+    }
+  }, "\uD83D\uDFE0 Foul Predictions \u2014 per team"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '6px 16px',
+      fontSize: 12,
+      color: 'var(--ink)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement("span", null, "Correct foul count per team"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 800,
+      color: '#e67e22',
+      fontFamily: 'JetBrains Mono,monospace'
+    }
+  }, "+", SCORE_FOULS_RIGHT, " pts")))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 8,
       paddingTop: 8,
@@ -2548,7 +2607,21 @@ const PredictView = ({
   }), " \uD83D\uDFE8 \xD7", cards.aY), cards.aR > 0 && /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement(Flag, {
     team: away,
     size: 12
-  }), " \uD83D\uDFE5 \xD7", cards.aR)), myScore !== null && /*#__PURE__*/React.createElement("div", {
+  }), " \uD83D\uDFE5 \xD7", cards.aR)), (fouls.hF > 0 || fouls.aF > 0) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 6,
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '4px 14px',
+      fontSize: 12
+    }
+  }, fouls.hF > 0 && /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement(Flag, {
+    team: home,
+    size: 12
+  }), " \uD83D\uDFE0 \xD7", fouls.hF), fouls.aF > 0 && /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement(Flag, {
+    team: away,
+    size: 12
+  }), " \uD83D\uDFE0 \xD7", fouls.aF)), myScore !== null && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
       paddingTop: 8,
@@ -2693,7 +2766,8 @@ const PredictView = ({
       pk,
       hGoals,
       aGoals,
-      cards
+      cards,
+      fouls
     }, liveGoals);
     const ptMap = {};
     detailPts.items.forEach(it => {
@@ -2994,6 +3068,79 @@ const PredictView = ({
           fontFamily: 'JetBrains Mono,monospace'
         }
       }, "+", SCORE_CARDS_RIGHT)));
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 10,
+        paddingTop: 10,
+        borderTop: '1px solid rgba(41,128,185,.15)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        marginBottom: 8,
+        color: 'var(--ink)'
+      }
+    }, "Foul predictions \uD83D\uDFE0"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 10
+      }
+    }, [[home, 'hF', 'Home Fouls'], [away, 'aF', 'Away Fouls']].map(([team, fk, flbl]) => {
+      const fPt = locked && detailPts.items.some(it => it.label.includes(flbl));
+      return /*#__PURE__*/React.createElement("div", {
+        key: team
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 10,
+          fontWeight: 600,
+          marginBottom: 5,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4
+        }
+      }, /*#__PURE__*/React.createElement(Flag, {
+        team: team,
+        size: 11
+      }), team || '?'), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          gap: 6,
+          alignItems: 'center'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 13
+        }
+      }, "\uD83D\uDFE0"), /*#__PURE__*/React.createElement("input", {
+        type: "number",
+        min: "0",
+        max: "40",
+        value: fouls[fk],
+        onChange: e => !locked && setFouls(p => ({
+          ...p,
+          [fk]: e.target.value
+        })),
+        readOnly: locked,
+        style: {
+          width: 42,
+          padding: '5px',
+          textAlign: 'center',
+          border: `1px solid ${fPt ? 'var(--forest)' : 'var(--line)'}`,
+          borderRadius: 4,
+          fontFamily: 'inherit',
+          fontSize: 13,
+          background: locked ? 'var(--cream2)' : 'white'
+        }
+      }), locked && fPt && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 10,
+          fontWeight: 700,
+          color: 'var(--forest)',
+          fontFamily: 'JetBrains Mono,monospace'
+        }
+      }, "+", SCORE_FOULS_RIGHT)));
     }))));
   })(), !locked && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4903,6 +5050,8 @@ const AdminView = ({
   const [cHR, setCHR] = useState(String(liveGoals?.cards?.hR ?? ''));
   const [cAY, setCAY] = useState(String(liveGoals?.cards?.aY ?? ''));
   const [cAR, setCAR] = useState(String(liveGoals?.cards?.aR ?? ''));
+  const [cHF, setCHF] = useState(String(liveGoals?.fouls?.hF ?? ''));
+  const [cAF, setCAF] = useState(String(liveGoals?.fouls?.aF ?? ''));
   const [savingLive, setSavingLive] = useState(false);
   useEffect(() => {
     if (bypassAuth) setAuthed(true);
@@ -4924,6 +5073,8 @@ const AdminView = ({
     setCHR(String(liveGoals?.cards?.hR ?? ''));
     setCAY(String(liveGoals?.cards?.aY ?? ''));
     setCAR(String(liveGoals?.cards?.aR ?? ''));
+    setCHF(String(liveGoals?.fouls?.hF ?? ''));
+    setCAF(String(liveGoals?.fouls?.aF ?? ''));
   }, [liveGoals]);
   useEffect(() => {
     setNewHome(home);
@@ -6454,6 +6605,143 @@ const AdminView = ({
       setCHR('');
       setCAY('');
       setCAR('');
+    },
+    style: {
+      justifyContent: 'center',
+      background: 'var(--cream2)',
+      color: 'var(--ink)',
+      border: '1px solid var(--line)'
+    }
+  }, "\u21BA Reset"))), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginTop: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 14
+    }
+  }, "\uD83D\uDFE0 Actual Fouls"), liveGoals?.fouls && (liveGoals.fouls.hF > 0 || liveGoals.fouls.aF > 0) && /*#__PURE__*/React.createElement("button", {
+    onClick: async () => {
+      if (!window.confirm('Clear foul data?')) return;
+      setCHF('');
+      setCAF('');
+      await onSaveLiveGoals({
+        ...liveGoals,
+        fouls: {
+          hF: 0,
+          aF: 0
+        }
+      });
+    },
+    style: {
+      background: 'rgba(159,27,27,.07)',
+      color: 'var(--burgundy)',
+      border: '1px solid var(--burgundy)',
+      borderRadius: 4,
+      padding: '4px 10px',
+      fontSize: 11,
+      fontWeight: 700,
+      cursor: 'pointer'
+    }
+  }, "\uD83D\uDDD1 Clear Fouls")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 16,
+      marginBottom: 14
+    }
+  }, [[home, 'hF', cHF, setCHF], [away, 'aF', cAF, setCAF]].filter(([t]) => t && t !== 'TBD').map(([team, pfx, val, setVal]) => /*#__PURE__*/React.createElement("div", {
+    key: pfx,
+    className: "card",
+    style: {
+      padding: 12,
+      background: 'var(--cream2)',
+      border: '1px solid var(--line)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      marginBottom: 10,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: team,
+    size: 14
+  }), team), /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 600,
+      color: 'var(--ink-soft)',
+      marginBottom: 4
+    }
+  }, "\uD83D\uDFE0 Fouls"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    max: "40",
+    value: val,
+    onChange: e => setVal(e.target.value),
+    style: {
+      width: '100%',
+      padding: '8px',
+      textAlign: 'center',
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      fontFamily: 'inherit',
+      fontSize: 16,
+      fontWeight: 700,
+      boxSizing: 'border-box'
+    }
+  }))))), liveGoals?.fouls && (liveGoals.fouls.hF > 0 || liveGoals.fouls.aF > 0) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 12,
+      padding: '8px 12px',
+      background: 'rgba(27,94,63,.05)',
+      border: '1px solid rgba(27,94,63,.2)',
+      borderRadius: 5,
+      fontSize: 12,
+      color: 'var(--ink-soft)'
+    }
+  }, "\u2705 Saved: ", home, " \uD83D\uDFE0", liveGoals.fouls.hF || 0, " \xB7 ", away, " \uD83D\uDFE0", liveGoals.fouls.aF || 0), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-amber",
+    onClick: async () => {
+      await onSaveLiveGoals({
+        ...liveGoals,
+        fouls: {
+          hF: parseInt(cHF) || 0,
+          aF: parseInt(cAF) || 0
+        }
+      });
+    },
+    style: {
+      flex: 1,
+      justifyContent: 'center'
+    }
+  }, "\uD83D\uDCBE Save Fouls"), /*#__PURE__*/React.createElement("button", {
+    className: "btn",
+    onClick: () => {
+      setCHF('');
+      setCAF('');
     },
     style: {
       justifyContent: 'center',
