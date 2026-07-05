@@ -531,14 +531,20 @@ const CSS = `
   .sidebar-right{display:block;}@media(max-width:1100px) and (min-width:801px){.sidebar-right{display:none;}}
   @media(max-width:800px){.sidebar-right{border-top:2px solid var(--line);padding-top:16px;margin-top:4px;}}
   .mob-fanzone-label{display:none;}@media(max-width:800px){.mob-fanzone-label{display:flex;align-items:center;gap:8px;margin-bottom:12px;}}
-  .match-teams{display:flex;align-items:center;justify-content:center;gap:20px;}
-  .match-team{text-align:center;flex:1;min-width:0;}
-  .match-team-name{font-weight:800;font-size:18px;margin-top:8px;color:white;}
-  .match-vs{text-align:center;flex-shrink:0;}
-  @media(max-width:480px){
-    .match-teams{gap:10px;}
-    .match-team-name{font-size:14px;}
-    .match-team img,.match-team .fi{max-width:52px!important;}
+  .match-teams{display:flex;align-items:center;justify-content:center;gap:20px;width:100%;}
+  .match-team{text-align:center;flex:1;min-width:0;overflow:hidden;}
+  .match-team-name{font-weight:800;font-size:18px;margin-top:8px;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .match-vs{text-align:center;flex-shrink:0;max-width:160px;}
+  @media(max-width:520px){
+    .match-teams{gap:6px;}
+    .match-team-name{font-size:13px;}
+    .match-team .fi{width:44px!important;height:33px!important;}
+    .match-vs{max-width:120px;}
+  }
+  @media(max-width:360px){
+    .match-team-name{font-size:11px;}
+    .match-team .fi{width:36px!important;height:27px!important;}
+    .match-vs{max-width:100px;}
   }
   .sidebar-left{display:block;}@media(max-width:800px){.sidebar-left{display:none;}}
   .fan-header{padding:24px 24px}
@@ -3471,14 +3477,17 @@ const PredictView = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
-        marginBottom: 6,
-        padding: '6px 14px',
+        gap: 4,
+        padding: '5px 8px',
         background: 'rgba(0,0,0,.25)',
         borderRadius: 999,
         border: '1px solid rgba(255,255,255,.1)',
-        width: 'fit-content',
-        margin: '0 auto 6px'
+        width: '100%',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        margin: '0 0 6px',
+        flexWrap: 'nowrap',
+        overflow: 'hidden'
       }
     }, /*#__PURE__*/React.createElement("div", {
       onClick: () => {
@@ -3501,19 +3510,21 @@ const PredictView = ({
       size: 30
     })), /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: 600,
-        color: 'rgba(255,255,255,.85)',
-        letterSpacing: '.04em'
+        color: 'rgba(255,255,255,.7)',
+        letterSpacing: '.03em',
+        flexShrink: 0
       }
     }, "Kickoff in"), parts.map((p, i) => /*#__PURE__*/React.createElement("span", {
       key: i,
       style: {
         fontFamily: 'JetBrains Mono,monospace',
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: 700,
         color: '#4ade80',
-        letterSpacing: 1
+        letterSpacing: .5,
+        flexShrink: 0
       }
     }, p)));
   })(), hasResult ? /*#__PURE__*/React.createElement("div", {
