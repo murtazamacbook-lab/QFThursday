@@ -101,8 +101,8 @@ const NS = window.__COMP_ID || 'qft';
 const DEFAULT_ADMIN_PW = window.__ADMIN_PW || 'qftadmin2026';
 
 // ── MATCH ────────────────────────────────────────────────────────
-const MATCH_KICKOFF = '2026-07-09T20:00:00+01:00'; // Update once confirmed
-const MATCH_VENUE = 'SoFi Stadium, Inglewood, Los Angeles'; // QF Thu Jul 9
+const MATCH_KICKOFF = '2026-07-09T20:00:00Z'; // ESPN confirmed: 20:00 UTC = 4:00 PM EDT
+const MATCH_VENUE = 'Gillette Stadium, Foxborough, Massachusetts'; // ESPN confirmed QF Thu Jul 9
 
 // ── FIFA RANKINGS (June 2026 edition) ────────────────────────────
 const FIFA_RANKINGS = {
@@ -2342,7 +2342,7 @@ const PredictView = ({
       color: 'rgba(255,255,255,.5)',
       marginBottom: 4
     }
-  }, "Quarter-Final \xB7 Thu Jul 9, 2026 \xB7 3:00 PM EDT"), /*#__PURE__*/React.createElement("div", {
+  }, "Quarter-Final \xB7 Thu Jul 9, 2026 \xB7 4:00 PM EDT"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: 'rgba(255,255,255,.3)',
@@ -7059,17 +7059,17 @@ const App = () => {
   const [home, setHome] = useState(() => {
     try {
       const t = lsGet('teams');
-      return t?.home || 'TBD';
+      return t?.home || 'Morocco'; // ESPN confirmed QF: Morocco vs France
     } catch {
-      return 'TBD';
+      return 'Morocco';
     }
   });
   const [away, setAway] = useState(() => {
     try {
       const t = lsGet('teams');
-      return t?.away || 'TBD';
+      return t?.away || 'France'; // ESPN confirmed QF: Morocco vs France
     } catch {
-      return 'TBD';
+      return 'France';
     }
   });
   const [liveData, setLiveData] = useState(null);
