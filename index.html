@@ -1974,7 +1974,8 @@ const PredictView = ({
   onSaveBonusPick,
   bonusAnswers = {},
   liveGoals = {},
-  venue = ''
+  venue = '',
+  countdown = ''
 }) => {
   const [h, setH] = useState('');
   const [a, setA] = useState('');
@@ -2352,7 +2353,34 @@ const PredictView = ({
       gap: 5,
       justifyContent: 'center'
     }
-  }, "\uD83D\uDCCD ", venue || MATCH_VENUE), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCCD ", venue || MATCH_VENUE),
+  countdown && !hasResult && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      background: 'rgba(255,255,255,.07)',
+      border: '1px solid rgba(255,255,255,.15)',
+      borderRadius: 8,
+      padding: '6px 14px'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 12, color: 'rgba(255,255,255,.5)' }
+  }, "\u23F3 Kickoff in"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontFamily: 'JetBrains Mono, monospace',
+      fontWeight: 800,
+      fontSize: 15,
+      color: '#2ecc71',
+      letterSpacing: 1
+    }
+  }, countdown))),
+  /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -7074,6 +7102,7 @@ const App = () => {
   });
   const [liveData, setLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
+  const [countdown, setCountdown] = useState('');
   const [view, setView] = useState('predict');
   const [ready, setReady] = useState(false);
   const [loadMsg, setLoadMsg] = useState('Connecting…');
@@ -7087,6 +7116,27 @@ const App = () => {
   const [welcomeToast, setWelcomeToast] = useState(null);
   const [manualLock, setManualLock] = useState(() => !!lsGet('config')?.manualLock);
   const prevGoalCountRef = useRef(0);
+
+  // ── Countdown timer (ticks every second) ─────────────────────────
+  useEffect(() => {
+    const tick = () => {
+      const diff = new Date(MATCH_KICKOFF).getTime() - Date.now();
+      if (diff <= 0) { setCountdown(''); return; }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      const parts = [];
+      if (d > 0) parts.push(`${d}d`);
+      parts.push(String(h).padStart(2,'0') + 'h');
+      parts.push(String(m).padStart(2,'0') + 'm');
+      parts.push(String(s).padStart(2,'0') + 's');
+      setCountdown(parts.join(' '));
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // Load all data
   useEffect(() => {
@@ -7305,7 +7355,37 @@ const App = () => {
           ma = normTeam(m.away);
         return (home === 'TBD' || mh === home || ma === home) && (away === 'TBD' || mh === away || ma === away);
       }) || matches[0] || null;
-      // If no ESPN match, show upcoming with TBD teams
+
+      // ── AUTO-SYNC TEAMS FROM ESPN ────────────────────────────────
+      // If ESPN returns confirmed team names that differ from stored, update Firestore automatically
+      if (found && found.home && found.away) {
+        const espnHome = found.home;
+        const espnAway = found.away;
+        if (espnHome !== home || espnAway !== away) {
+          console.log('[qft] ESPN auto-syncing teams:', espnHome, 'vs', espnAway);
+          setHome(espnHome);
+          setAway(espnAway);
+          storage.set('teams', { home: espnHome, away: espnAway });
+        }
+      }
+
+      // ── AUTO-RESULT FROM ESPN ────────────────────────────────────
+      // When ESPN shows Full Time and no result is saved yet, write it automatically
+      if (found && found.status === 'FT' && found.homeScore != null && found.awayScore != null) {
+        const currentResult = lsGet('result');
+        const alreadySet = currentResult && (currentResult.h != null || currentResult.a != null);
+        if (!alreadySet) {
+          const autoResult = {
+            h: parseInt(found.homeScore, 10),
+            a: parseInt(found.awayScore, 10),
+            autoFromESPN: true
+          };
+          console.log('[qft] ESPN auto-result:', autoResult);
+          setResult(autoResult);
+          storage.set('result', autoResult);
+        }
+      }
+
       setLiveData(found || {
         home,
         away,
@@ -7313,8 +7393,7 @@ const App = () => {
         awayScore: null,
         status: 'scheduled'
       });
-      // Note: teams are admin-managed — ESPN never overwrites them
-      // Check manual override
+      // Check manual override — takes priority over ESPN auto-result
       if (FB_ON) {
         const snap = await db.collection(NS).doc('manual-live').get().catch(() => null);
         if (snap?.exists) {
@@ -7729,7 +7808,8 @@ const App = () => {
     onSaveBonusPick: saveBonusPick,
     bonusAnswers: bonusAnswers,
     liveGoals: liveGoals,
-    venue: liveData?.venue || MATCH_VENUE
+    venue: liveData?.venue || MATCH_VENUE,
+    countdown: countdown
   }), view === 'leaderboard' && /*#__PURE__*/React.createElement(LeaderboardView, {
     participants: participants,
     predictions: predictions,
