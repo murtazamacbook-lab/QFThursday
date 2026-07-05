@@ -534,17 +534,17 @@ const CSS = `
   .match-teams{display:flex;align-items:center;justify-content:center;gap:20px;width:100%;}
   .match-team{text-align:center;flex:1;min-width:0;overflow:hidden;}
   .match-team-name{font-weight:800;font-size:18px;margin-top:8px;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .match-vs{text-align:center;flex-shrink:0;max-width:160px;}
+  .match-vs{text-align:center;flex-shrink:0;}
   @media(max-width:520px){
     .match-teams{gap:6px;}
     .match-team-name{font-size:13px;}
     .match-team .fi{width:44px!important;height:33px!important;}
-    .match-vs{max-width:120px;}
+    .match-vs{max-width:130px;}
   }
   @media(max-width:360px){
     .match-team-name{font-size:11px;}
     .match-team .fi{width:36px!important;height:27px!important;}
-    .match-vs{max-width:100px;}
+    .match-vs{max-width:110px;}
   }
   .sidebar-left{display:block;}@media(max-width:800px){.sidebar-left{display:none;}}
   .fan-header{padding:24px 24px}
@@ -3486,8 +3486,7 @@ const PredictView = ({
         maxWidth: '100%',
         boxSizing: 'border-box',
         margin: '0 0 6px',
-        flexWrap: 'nowrap',
-        overflow: 'hidden'
+        flexWrap: 'nowrap'
       }
     }, /*#__PURE__*/React.createElement("div", {
       onClick: () => {
