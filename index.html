@@ -526,7 +526,9 @@ const CSS = `
     .goal-grid{grid-template-columns:70px 1fr 1fr;gap:4px;}
     .goal-grid .goal-pts{display:none;}
   }
-  .sidebar-right{display:block;}@media(max-width:1100px){.sidebar-right{display:none;}}
+  .sidebar-right{display:block;}@media(max-width:1100px) and (min-width:801px){.sidebar-right{display:none;}}
+  @media(max-width:800px){.sidebar-right{border-top:2px solid var(--line);padding-top:16px;margin-top:4px;}}
+  .mob-fanzone-label{display:none;}@media(max-width:800px){.mob-fanzone-label{display:flex;align-items:center;gap:8px;margin-bottom:12px;}}
   .sidebar-left{display:block;}@media(max-width:800px){.sidebar-left{display:none;}}
   .fan-header{padding:28px 24px}
   .fan-title{font-size:32px;font-weight:800;margin:0 0 12px;letter-spacing:-.02em;color:white;line-height:1.1}
@@ -1556,7 +1558,30 @@ const RightSidebar = ({
   const total = withPicks.length || 1;
   return /*#__PURE__*/React.createElement("aside", {
     className: "sidebar-right"
-  }, exact.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "mob-fanzone-label"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      height: 2,
+      background: 'var(--line)'
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      letterSpacing: '.1em',
+      color: 'var(--ink-soft)',
+      textTransform: 'uppercase',
+      whiteSpace: 'nowrap'
+    }
+  }, "\u26A1 Fan Zone"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      height: 2,
+      background: 'var(--line)'
+    }
+  })), exact.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       flexShrink: 0,
       borderBottom: '3px solid var(--cream2)',
