@@ -1034,7 +1034,8 @@ const TeamSearchInput = ({
 // ── LIVE BANNER ───────────────────────────────────────────────────
 const LiveMatchBanner = ({
   liveData,
-  loading
+  loading,
+  kickoffTime = MATCH_KICKOFF
 }) => {
   if (loading) return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1087,7 +1088,7 @@ const LiveMatchBanner = ({
   const isLive = ['1H', '2H', 'HT', 'ET', 'PEN'].includes(status);
   const isFT = status === 'FT';
   if (!isLive && !isFT) {
-    const kickoffMs = new Date(MATCH_KICKOFF).getTime();
+    const kickoffMs = new Date(kickoffTime).getTime();
     const secsLeft = (kickoffMs - Date.now()) / 1000;
     const inWindow = secsLeft > 0 && secsLeft <= 45 * 60;
     return /*#__PURE__*/React.createElement("div", {
@@ -7103,6 +7104,11 @@ const App = () => {
   const [liveData, setLiveData] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [countdown, setCountdown] = useState('');
+  // kickoffTime: starts from hardcoded fallback, gets overwritten by ESPN/Firestore
+  const [kickoffTime, setKickoffTime] = useState(() => lsGet('kickoff')?.time || MATCH_KICKOFF);
+  const kickoffTimeRef = useRef(lsGet('kickoff')?.time || MATCH_KICKOFF);
+  // keep ref in sync with state so intervals always see latest value
+  useEffect(() => { kickoffTimeRef.current = kickoffTime; }, [kickoffTime]);
   const [view, setView] = useState('predict');
   const [ready, setReady] = useState(false);
   const [loadMsg, setLoadMsg] = useState('Connecting…');
@@ -7117,10 +7123,10 @@ const App = () => {
   const [manualLock, setManualLock] = useState(() => !!lsGet('config')?.manualLock);
   const prevGoalCountRef = useRef(0);
 
-  // ── Countdown timer (ticks every second) ─────────────────────────
+  // ── Countdown timer (ticks every second, always reads latest kickoffTime) ────
   useEffect(() => {
     const tick = () => {
-      const diff = new Date(MATCH_KICKOFF).getTime() - Date.now();
+      const diff = new Date(kickoffTimeRef.current).getTime() - Date.now();
       if (diff <= 0) { setCountdown(''); return; }
       const d = Math.floor(diff / 86400000);
       const h = Math.floor((diff % 86400000) / 3600000);
@@ -7136,14 +7142,25 @@ const App = () => {
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, []);
+  }, []); // [] intentional — reads kickoffTimeRef.current (always fresh)
 
   // Load all data
   useEffect(() => {
     setLoadMsg('Fetching player data…');
     const t1 = setTimeout(() => setLoadMsg('Downloading predictions…'), 1200);
     const t2 = setTimeout(() => setLoadMsg('Almost ready…'), 3000);
-    Promise.all([storage.get('participants'), storage.get('pins'), storage.getUserMap('predictions'), storage.get('result'), storage.getUserMap('bonus-picks'), storage.get('bonus-answers'), storage.get('teams'), storage.get('manual-live'), storage.get('config')]).then(([parts, pins, preds, res, bPicks, bAns, teams, ml, cfg]) => {
+    Promise.all([
+      storage.get('participants'),
+      storage.get('pins'),
+      storage.getUserMap('predictions'),
+      storage.get('result'),
+      storage.getUserMap('bonus-picks'),
+      storage.get('bonus-answers'),
+      storage.get('teams'),
+      storage.get('manual-live'),
+      storage.get('config'),
+      storage.get('kickoff')           // ── load cached kickoff time
+    ]).then(([parts, pins, preds, res, bPicks, bAns, teams, ml, cfg, ko]) => {
       clearTimeout(t1);
       clearTimeout(t2);
       if (Array.isArray(parts)) setParticipants(parts);
@@ -7155,6 +7172,10 @@ const App = () => {
       if (teams?.home) {
         setHome(teams.home);
         setAway(teams.away || 'TBD');
+      }
+      if (ko?.time) {
+        setKickoffTime(ko.time);         // restore cached ESPN kickoff
+        kickoffTimeRef.current = ko.time;
       }
       if (ml && typeof ml === 'object') setManualLive(ml);
       if (cfg && typeof cfg === 'object') setManualLock(!!cfg.manualLock);
@@ -7221,6 +7242,13 @@ const App = () => {
       if (d?.home) {
         setHome(d.home);
         setAway(d.away || 'TBD');
+      }
+    });
+    sub('kickoff', d => {              // ── real-time kickoff sync from Firestore
+      if (d?.time) {
+        setKickoffTime(d.time);
+        kickoffTimeRef.current = d.time;
+        lsSet('kickoff', d);
       }
     });
     sub('manual-live', d => {
@@ -7355,6 +7383,15 @@ const App = () => {
           ma = normTeam(m.away);
         return (home === 'TBD' || mh === home || ma === home) && (away === 'TBD' || mh === away || ma === away);
       }) || matches[0] || null;
+
+      // ── AUTO-SYNC KICKOFF TIME FROM ESPN ──────────────────────────
+      // Save ESPN's confirmed kickoff ISO time to Firestore so all clients sync
+      if (found?.kickoff && found.kickoff !== kickoffTimeRef.current) {
+        console.log('[qft] ESPN kickoff time updated:', found.kickoff);
+        setKickoffTime(found.kickoff);
+        kickoffTimeRef.current = found.kickoff;
+        storage.set('kickoff', { time: found.kickoff });
+      }
 
       // ── AUTO-SYNC TEAMS FROM ESPN ────────────────────────────────
       // If ESPN returns confirmed team names that differ from stored, update Firestore automatically
@@ -7555,14 +7592,15 @@ const App = () => {
       }).catch(() => {})]);
     }
   };
-  const predLocked = manualLock || !!(result && result.h != null && result.h !== '') || Date.now() >= LOCK_MS;
+  const lockMs = new Date(kickoffTime).getTime() - LOCK_BEFORE_MS;
+  const predLocked = manualLock || !!(result && result.h != null && result.h !== '') || Date.now() >= lockMs;
   const [nowTick, setNowTick] = React.useState(Date.now());
   React.useEffect(() => {
     if (predLocked) return;
     const t = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(t);
   }, [predLocked]);
-  const msToLock = Math.max(0, LOCK_MS - nowTick);
+  const msToLock = Math.max(0, lockMs - nowTick);
   const secsToLock = Math.floor(msToLock / 1000);
   const showWarn = !predLocked && msToLock > 0 && msToLock <= WARN_MS;
   const lockCountdown = (() => {
@@ -7648,7 +7686,8 @@ const App = () => {
     className: "qft-header"
   }, /*#__PURE__*/React.createElement(LiveMatchBanner, {
     liveData: liveData,
-    loading: liveLoading
+    loading: liveLoading,
+    kickoffTime: kickoffTime
   }), showWarn && !predLocked && /*#__PURE__*/React.createElement("div", {
     style: {
       background: urgentWarn ? '#c0392b' : '#d4890a',
