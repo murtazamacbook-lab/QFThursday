@@ -8798,6 +8798,7 @@ const App = () => {
     return () => window.removeEventListener('qft-egg', handler);
   }, []);
   const prevReactionsRef = useRef({});
+  const reactionsReadyRef = useRef(false);
   const teamPicksRef = useRef({});
   useEffect(() => {
     teamPicksRef.current = teamPicks;
@@ -8910,7 +8911,7 @@ const App = () => {
       // Detect changed/new reactions and fire flying emoji — cap at 6 per burst
       const prev = prevReactionsRef.current;
       const changed = Object.entries(newR).filter(([user, emoji]) => prev[user] !== emoji && emoji);
-      if (changed.length > 0) {
+      if (reactionsReadyRef.current && changed.length > 0) {
         const pick = changed.length > 6 ? changed.sort(() => Math.random() - .5).slice(0, 6) : changed;
         const newItems = pick.map(([user, emoji]) => {
           const id = Date.now() + Math.random();
@@ -8936,6 +8937,7 @@ const App = () => {
         setTimeout(() => setFlyQueue(q => q.filter(i => !ids.has(i.id))), 2800);
       }
       prevReactionsRef.current = newR;
+      reactionsReadyRef.current = true;
     }, () => {}));
     sub('live-goals', d => {
       if (d && typeof d === 'object') {
