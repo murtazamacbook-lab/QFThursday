@@ -106,46 +106,46 @@ const MATCH_VENUE = 'Gillette Stadium, Foxborough, Massachusetts'; // QF Thu Jul
 
 // ── FIFA RANKINGS (June 2026 edition) ────────────────────────────
 const FIFA_RANKINGS = {
-  'Argentina': 1,
-  'France': 2,
-  'England': 3,
-  'Brazil': 4,
-  'Belgium': 5,
-  'Portugal': 6,
-  'Netherlands': 7,
-  'Spain': 8,
-  'Morocco': 14,
-  'Germany': 10,
-  'Italy': 11,
-  'Croatia': 12,
-  'Japan': 13,
-  'USA': 14,
-  'Mexico': 15,
-  'Senegal': 16,
-  'Switzerland': 17,
-  'Colombia': 18,
-  'Uruguay': 19,
-  'South Korea': 20,
-  'Denmark': 21,
-  'Austria': 22,
-  'Australia': 23,
-  'Ecuador': 24,
-  'Canada': 25,
-  'Wales': 26,
-  'Poland': 27,
-  'Cameroon': 28,
-  'Serbia': 29,
-  'Ghana': 30,
-  'Qatar': 31,
-  'Tunisia': 32,
-  'Saudi Arabia': 33,
-  'Costa Rica': 34,
-  'Iran': 35,
-  'South Africa': 36,
-  'Egypt': 37,
-  'Algeria': 38,
-  'Nigeria': 39,
-  'Ivory Coast': 40
+  'France': 1,
+  'Argentina': 2,
+  'Spain': 3,
+  'England': 4,
+  'Brazil': 5,
+  'Morocco': 6,
+  'Portugal': 7,
+  'Netherlands': 8,
+  'Belgium': 9,
+  'Mexico': 10,
+  'Germany': 11,
+  'Italy': 12,
+  'Croatia': 13,
+  'Japan': 14,
+  'United States': 16,
+  'Senegal': 17,
+  'Switzerland': 18,
+  'Colombia': 19,
+  'Uruguay': 20,
+  'South Korea': 21,
+  'Denmark': 22,
+  'Austria': 23,
+  'Australia': 24,
+  'Ecuador': 25,
+  'Canada': 26,
+  'Wales': 27,
+  'Poland': 28,
+  'Cameroon': 29,
+  'Serbia': 30,
+  'Ghana': 31,
+  'Qatar': 32,
+  'Tunisia': 33,
+  'Saudi Arabia': 34,
+  'Costa Rica': 35,
+  'Iran': 36,
+  'South Africa': 37,
+  'Egypt': 38,
+  'Algeria': 39,
+  'Nigeria': 40,
+  'Ivory Coast': 41
 };
 const LOCK_BEFORE_MS = 10 * 60 * 1000; // lock 10 min before kickoff
 const LOCK_MS = new Date(MATCH_KICKOFF).getTime() - LOCK_BEFORE_MS;
@@ -8100,7 +8100,39 @@ const AdminView = ({
   }))), section === 'online' && /*#__PURE__*/React.createElement(OnlinePanel, {
     onlineUsers: onlineUsers,
     currentUser: adminUser
-  }), section === 'goals' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }), section === 'goals' && /*#__PURE__*/React.createElement("div", null, liveGoals?.source && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 12,
+      padding: '8px 12px',
+      borderRadius: 6,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      background: liveGoals.source === 'espn' ? 'rgba(52,211,153,.1)' : 'rgba(214,137,42,.1)',
+      border: `1px solid ${liveGoals.source === 'espn' ? 'rgba(52,211,153,.4)' : 'rgba(214,137,42,.4)'}`,
+      fontSize: 12
+    }
+  }, /*#__PURE__*/React.createElement("span", null, liveGoals.source === 'espn' ? '🤖' : '✏️'), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontWeight: 600
+    }
+  }, liveGoals.source === 'espn' ? 'Auto-synced from ESPN · updates every 60s' : 'Manual data · ESPN auto-sync is paused'), liveGoals.source === 'admin' && /*#__PURE__*/React.createElement("button", {
+    onClick: () => onSaveLiveGoals({
+      ...liveGoals,
+      source: 'espn'
+    }),
+    style: {
+      background: 'none',
+      border: '1px solid rgba(52,211,153,.6)',
+      color: '#047857',
+      borderRadius: 4,
+      padding: '2px 8px',
+      fontSize: 11,
+      fontWeight: 700,
+      cursor: 'pointer'
+    }
+  }, "Re-enable ESPN sync")), /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       marginBottom: 12
@@ -9113,6 +9145,7 @@ const App = () => {
   const [teamPicks, setTeamPicks] = useState({}); // username → 'France'|'Morocco'
   const [flyQueue, setFlyQueue] = useState([]);
   const [easterEgg, setEasterEgg] = useState(false);
+  const [rankingsReady, setRankingsReady] = useState(false); // triggers re-render after live rankings load
   const eggTapsRef = useRef(0);
   // Listen for egg event fired from child components
   useEffect(() => {
@@ -9122,6 +9155,18 @@ const App = () => {
     };
     window.addEventListener('qft-egg', handler);
     return () => window.removeEventListener('qft-egg', handler);
+  }, []);
+
+  // Fetch live FIFA rankings from Vercel API route (server-side proxy, no CORS)
+  useEffect(() => {
+    fetch('/api/rankings').then(r => r.json()).then(({
+      rankings
+    }) => {
+      if (rankings && typeof rankings === 'object' && Object.keys(rankings).length >= 10) {
+        Object.assign(FIFA_RANKINGS, rankings);
+        setRankingsReady(true);
+      }
+    }).catch(() => {}); // silently keep hardcoded fallback
   }, []);
   const prevReactionsRef = useRef({});
   const reactionsReadyRef = useRef(false);
@@ -9353,6 +9398,7 @@ const App = () => {
     }, () => {});
     return () => unsub();
   }, [currentUser]);
+  const ftDetectedAtRef = useRef(null); // timestamp when FT was first seen — used to stop polling
 
   // ESPN live fetch
   const fetchLive = useCallback(async () => {
@@ -9375,6 +9421,7 @@ const App = () => {
           status = comp.status?.type?.shortDetail?.toLowerCase().includes('half') ? 'HT' : p >= 3 ? 'ET' : p === 2 ? '2H' : '1H';
         } else if (st?.state === 'post') status = 'FT';
         return {
+          id: ev.id,
           home: h,
           away: a,
           homeScore: hs,
@@ -9408,12 +9455,47 @@ const App = () => {
           if (d?.status) setLiveData(d);
         }
       }
+
+      // ── Auto-fetch goal/card/foul details when match is live or finished ──
+      if (found?.id && found.status !== 'scheduled') {
+        // Track when FT first detected
+        if (found.status === 'FT' && !ftDetectedAtRef.current) ftDetectedAtRef.current = Date.now();
+        try {
+          const det = await fetch(`/api/match-details?id=${found.id}`).then(r => r.ok ? r.json() : null);
+          if (det?.goals) {
+            // Only auto-update if admin hasn't manually entered data
+            setLiveGoals(prev => {
+              if (prev?.source === 'admin') return prev; // admin data takes priority
+              // On FT, also persist to Firestore so all users see final data
+              const updated = {
+                ...det
+              };
+              if (found.status === 'FT' && FB_ON) storage.set('live-goals', updated).catch(() => {});
+              return updated;
+            });
+          }
+        } catch {}
+      }
     } catch {}
     setLiveLoading(false);
   }, [home, away]);
   useEffect(() => {
+    // Don't poll at all if it's been >6 hours since kickoff (match long over)
+    const kickoffMs = new Date(MATCH_KICKOFF).getTime();
+    if (Date.now() - kickoffMs > 6 * 60 * 60 * 1000) {
+      fetchLive();
+      return;
+    } // one-shot only
+
     fetchLive();
-    const t = setInterval(fetchLive, 60000);
+    const t = setInterval(() => {
+      // Stop polling 90 min after FT is first detected (extra time + penalties covered)
+      if (ftDetectedAtRef.current && Date.now() - ftDetectedAtRef.current > 90 * 60 * 1000) {
+        clearInterval(t);
+        return;
+      }
+      fetchLive();
+    }, 60000);
     window.__refreshBanner = fetchLive;
     return () => {
       clearInterval(t);
@@ -9511,8 +9593,14 @@ const App = () => {
     storage.set('manual-live', data);
   };
   const saveLiveGoals = async data => {
-    setLiveGoals(data);
-    storage.set('live-goals', data);
+    setLiveGoals({
+      ...data,
+      source: 'admin'
+    });
+    storage.set('live-goals', {
+      ...data,
+      source: 'admin'
+    });
   };
   const toggleManualLock = async () => {
     const next = !manualLock;
