@@ -509,7 +509,7 @@ const CSS = `
   .hdr-title{font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.15;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .hdr-user{display:flex;align-items:center;gap:10px;font-size:13px;flex-shrink:0;}
   .goal-grid{display:grid;grid-template-columns:90px 1fr 1fr auto;gap:6px;margin-bottom:6px;align-items:center;}
-  @media(max-width:1100px){.page-grid{grid-template-columns:210px 1fr;}}
+  @media(max-width:1300px){.page-grid{grid-template-columns:210px 1fr;}}
   @media(max-width:800px){
     .page-grid{grid-template-columns:1fr;padding:12px 10px;gap:12px;}
     .sidebar-left,.sidebar-right{position:static;}
@@ -528,7 +528,7 @@ const CSS = `
     .goal-grid{grid-template-columns:70px 1fr 1fr;gap:4px;}
     .goal-grid .goal-pts{display:none;}
   }
-  .sidebar-right{display:block;}@media(max-width:1100px) and (min-width:801px){.sidebar-right{display:none;}}
+  .sidebar-right{display:block;}@media(max-width:1300px) and (min-width:801px){.sidebar-right{display:none;}}
   @media(max-width:800px){.sidebar-right{border-top:2px solid var(--line);padding-top:16px;margin-top:4px;}}
   .mob-fanzone-label{display:none;}@media(max-width:800px){.mob-fanzone-label{display:flex;align-items:center;gap:8px;margin-bottom:12px;}}
   .match-teams{display:flex;align-items:center;justify-content:center;gap:20px;width:100%;}
@@ -6396,310 +6396,620 @@ const OnlinePanel = ({
 const BackupPanel = ({
   predictions,
   bonusPicks,
-  participants
+  participants,
+  userPins = {},
+  onRestoreParticipants,
+  onRestorePredictions,
+  onRestoreBonusPicks,
+  onRestorePins
 }) => {
-  const [backupData, setBackupData] = useState(null);
-  const [backupTs, setBackupTs] = useState(null);
-  const [restoreUser, setRestoreUser] = useState('');
-  const [restoreMsg, setRestoreMsg] = useState('');
-  const [savingCloud, setSavingCloud] = useState(false);
-  const [loadingCloud, setLoadingCloud] = useState(false);
-  const [cloudTs, setCloudTs] = useState(null);
-
-  // Load cloud backup timestamp on mount
-  useEffect(() => {
+  const [msg, setMsg] = React.useState('');
+  const [busy, setBusy] = React.useState('');
+  const [cloudTs, setCloudTs] = React.useState(null);
+  const [rebuildLog, setRebuildLog] = React.useState('');
+  const [diagResult, setDiagResult] = React.useState(null);
+  const [auditLogs, setAuditLogs] = React.useState([]);
+  const [auditLoading, setAuditLoading] = React.useState(false);
+  const auditLog = async (action, target, details = {}) => {
     if (!FB_ON) return;
-    db.collection(NS).doc('backup-snapshot').get().then(snap => {
-      if (snap.exists) {
+    try {
+      await db.collection('qft-audit').add({
+        action,
+        target,
+        ts: Date.now(),
+        ...details
+      });
+    } catch (_e) {}
+  };
+  React.useEffect(() => {
+    if (!FB_ON) return;
+    db.collection(NS).doc('full-backup').get().then(s => {
+      if (s.exists) {
         try {
-          const d = JSON.parse(snap.data().value || 'null');
+          const d = JSON.parse(s.data().value || 'null');
           if (d?.ts) setCloudTs(new Date(d.ts).toLocaleString());
         } catch {}
       }
     }).catch(() => {});
   }, []);
-  const doBackup = () => {
-    const snap = {
-      ts: Date.now(),
-      predictions: {
-        ...predictions
-      },
-      bonusPicks: {
-        ...bonusPicks
-      },
-      participants: [...participants]
-    };
-    setBackupData(snap);
-    setBackupTs(new Date().toLocaleTimeString());
-    setRestoreMsg('');
-  };
+
+  // ── Snapshot to Firestore ──────────────────────────────────────
   const saveToCloud = async () => {
-    const snap = {
-      ts: Date.now(),
-      predictions: {
-        ...predictions
-      },
-      bonusPicks: {
-        ...bonusPicks
-      },
-      participants: [...participants]
-    };
-    setBackupData(snap);
-    setBackupTs(new Date().toLocaleTimeString());
     if (!FB_ON) {
-      setRestoreMsg('❌ Firebase not connected.');
+      setMsg('❌ Firebase not connected.');
       return;
     }
-    setSavingCloud(true);
-    setRestoreMsg('');
+    setBusy('save');
+    setMsg('');
     try {
-      await db.collection(NS).doc('backup-snapshot').set({
+      const snap = {
+        ts: Date.now(),
+        participants: [...participants],
+        pins: {
+          ...userPins
+        },
+        predictions: {
+          ...predictions
+        },
+        bonusPicks: {
+          ...bonusPicks
+        }
+      };
+      await db.collection(NS).doc('full-backup').set({
         value: JSON.stringify(snap)
       });
       setCloudTs(new Date(snap.ts).toLocaleString());
-      setRestoreMsg('✅ Backup saved to Firestore.');
+      setMsg(`✅ Full backup saved — ${participants.length} users, ${Object.keys(predictions).length} predictions.`);
+      auditLog('BACKUP_SAVED', 'full-backup', {
+        users: participants.length,
+        predictions: Object.keys(predictions).length
+      });
     } catch (e) {
-      setRestoreMsg('❌ Cloud save failed: ' + e.message);
+      setMsg('❌ Save failed: ' + e.message);
     }
-    setSavingCloud(false);
+    setBusy('');
   };
-  const loadFromCloud = async () => {
-    if (!FB_ON) {
-      setRestoreMsg('❌ Firebase not connected.');
-      return;
-    }
-    setLoadingCloud(true);
-    setRestoreMsg('');
-    try {
-      const snap = await db.collection(NS).doc('backup-snapshot').get();
-      if (!snap.exists) {
-        setRestoreMsg('❌ No cloud backup found.');
-        setLoadingCloud(false);
-        return;
+
+  // ── Download JSON ──────────────────────────────────────────────
+  const downloadBackup = async () => {
+    setBusy('dl');
+    setMsg('');
+    const snap = {
+      ts: Date.now(),
+      participants: [...participants],
+      pins: {
+        ...userPins
+      },
+      predictions: {
+        ...predictions
+      },
+      bonusPicks: {
+        ...bonusPicks
       }
-      const d = JSON.parse(snap.data().value || 'null');
-      if (!d) {
-        setRestoreMsg('❌ Backup data is empty.');
-        setLoadingCloud(false);
-        return;
-      }
-      setBackupData(d);
-      setBackupTs(new Date(d.ts).toLocaleTimeString());
-      setCloudTs(new Date(d.ts).toLocaleString());
-      setRestoreMsg(`✅ Loaded from Firestore — ${Object.keys(d.predictions || {}).length} predictions, ${Object.keys(d.bonusPicks || {}).length} bonus picks (saved ${new Date(d.ts).toLocaleString()}).`);
-    } catch (e) {
-      setRestoreMsg('❌ Load failed: ' + e.message);
-    }
-    setLoadingCloud(false);
-  };
-  const downloadBackup = () => {
-    if (!backupData) return;
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], {
+    };
+    const blob = new Blob([JSON.stringify(snap, null, 2)], {
       type: 'application/json'
     });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `qft-backup-${Date.now()}.json`;
+    a.download = `qft-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
+    setMsg('✅ JSON downloaded.');
+    setBusy('');
   };
-  const doRestore = async name => {
-    if (!backupData) {
-      setRestoreMsg('❌ No backup loaded — take a snapshot or load from Firestore first.');
+
+  // ── Selective restore from Firestore full-backup ───────────────
+  const doRestore = async (label, fn) => {
+    if (!FB_ON) {
+      setMsg('❌ Firebase not connected.');
       return;
     }
-    const targets = name ? [name] : participants;
-    let count = 0;
-    for (const n of targets) {
-      if (backupData.predictions[n] != null) {
-        await storage.setUserField('predictions', n, backupData.predictions[n]);
-        count++;
+    if (!window.confirm(`Restore ${label}?\n\nThis will overwrite live data. Are you sure?`)) return;
+    setBusy('restore');
+    setMsg(`⏳ Restoring ${label}…`);
+    try {
+      const snap = await db.collection(NS).doc('full-backup').get();
+      if (!snap.exists) {
+        setMsg('❌ No full backup found. Save one first.');
+        setBusy('');
+        return;
       }
-      if (backupData.bonusPicks[n] != null) {
-        await storage.setUserField('bonus-picks', n, backupData.bonusPicks[n]);
-      }
+      const bk = JSON.parse(snap.data().value || '{}');
+      await fn(bk);
+    } catch (e) {
+      setMsg('❌ Restore failed: ' + e.message);
     }
-    setRestoreMsg(`✅ Restored ${count} prediction${count !== 1 ? 's' : ''} ${name ? `for ${name}` : 'for all users'}.`);
+    setBusy('');
   };
+
+  // ── Rebuild participants from predictions doc ──────────────────
+  const handleRebuild = async () => {
+    if (!FB_ON) {
+      setRebuildLog('❌ Firebase not connected.');
+      return;
+    }
+    setBusy('rebuild');
+    setRebuildLog('Scanning Firestore…');
+    try {
+      const [predSnap, bpSnap, partsSnap] = await Promise.all([db.collection(NS).doc('predictions').get(), db.collection(NS).doc('bonus-picks').get(), db.collection(NS).doc('participants').get()]);
+      const predNames = predSnap.exists ? Object.keys(predSnap.data() || {}).filter(k => k !== 'value') : [];
+      const bpNames = bpSnap.exists ? Object.keys(bpSnap.data() || {}).filter(k => k !== 'value') : [];
+      const currentParts = partsSnap.exists ? JSON.parse(partsSnap.data().value || '[]') : [];
+      const allFound = [...new Set([...predNames, ...bpNames])].filter(n => n.length > 0);
+      const merged = [...new Set([...currentParts, ...allFound])];
+      await storage.set('participants', merged);
+      onRestoreParticipants && onRestoreParticipants(merged);
+      const added = merged.filter(n => !currentParts.includes(n));
+      const log = `✅ ${merged.length} total. Added: ${added.length > 0 ? added.join(', ') : 'none'}`;
+      setRebuildLog(log);
+      auditLog('REBUILD_PARTICIPANTS', 'participants', {
+        before: currentParts.length,
+        after: merged.length,
+        added: added.join(', ') || 'none'
+      });
+    } catch (e) {
+      setRebuildLog('❌ ' + e.message);
+    }
+    setBusy('');
+  };
+
+  // ── Cross-source audit ─────────────────────────────────────────
+  const handleDiagnose = async () => {
+    if (!FB_ON) {
+      setDiagResult({
+        error: 'Firebase not connected.'
+      });
+      return;
+    }
+    setBusy('diag');
+    setDiagResult(null);
+    try {
+      const [predSnap, bpSnap, partsSnap, pinsSnap] = await Promise.all([db.collection(NS).doc('predictions').get(), db.collection(NS).doc('bonus-picks').get(), db.collection(NS).doc('participants').get(), db.collection(NS).doc('pins').get()]);
+      const predNames = new Set(predSnap.exists ? Object.keys(predSnap.data() || {}).filter(k => k !== 'value') : []);
+      const bpNames = new Set(bpSnap.exists ? Object.keys(bpSnap.data() || {}).filter(k => k !== 'value') : []);
+      const partsList = new Set(partsSnap.exists ? JSON.parse(partsSnap.data().value || '[]') : []);
+      const pinNames = new Set(pinsSnap.exists ? Object.keys(JSON.parse(pinsSnap.data().value || '{}') || {}) : []);
+      const allKnown = new Set([...predNames, ...bpNames, ...partsList, ...pinNames]);
+      const rows = [...allKnown].sort().map(name => ({
+        name,
+        inParts: partsList.has(name),
+        hasPred: predNames.has(name),
+        hasBp: bpNames.has(name),
+        hasPin: pinNames.has(name)
+      }));
+      setDiagResult({
+        rows,
+        missing: rows.filter(r => !r.inParts),
+        counts: {
+          parts: partsList.size,
+          preds: predNames.size,
+          bp: bpNames.size,
+          pins: pinNames.size,
+          total: allKnown.size
+        }
+      });
+    } catch (e) {
+      setDiagResult({
+        error: e.message
+      });
+    }
+    setBusy('');
+  };
+
+  // ── Audit log load ─────────────────────────────────────────────
+  const loadAuditLog = async () => {
+    if (!FB_ON) {
+      setMsg('❌ Firebase not connected.');
+      return;
+    }
+    setAuditLoading(true);
+    try {
+      const snap = await db.collection('qft-audit').orderBy('ts', 'desc').limit(100).get();
+      setAuditLogs(snap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      })));
+    } catch (e) {
+      setMsg('❌ ' + e.message);
+    }
+    setAuditLoading(false);
+  };
+  const btnStyle = (col = 'var(--forest)', disabled = false) => ({
+    padding: '9px 16px',
+    borderRadius: 6,
+    border: 'none',
+    background: col,
+    color: 'white',
+    fontWeight: 700,
+    fontSize: 12,
+    cursor: disabled ? 'default' : 'pointer',
+    fontFamily: 'inherit',
+    opacity: disabled ? .6 : 1,
+    whiteSpace: 'nowrap'
+  });
   return /*#__PURE__*/React.createElement("div", {
-    className: "card"
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 16,
+      borderLeft: '3px solid var(--forest)'
+    }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontWeight: 700,
-      fontSize: 15,
+      fontSize: 14,
       marginBottom: 4
     }
-  }, "\uD83D\uDCBE Backup & Restore"), /*#__PURE__*/React.createElement("div", {
+  }, "\u2601\uFE0F Full Backup"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       color: 'var(--ink-soft)',
-      marginBottom: 16
+      marginBottom: 10
     }
-  }, "Snapshot predictions & bonus picks to Firestore (survives page refresh) or download as JSON."), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 16,
-      padding: '12px 14px',
-      background: 'rgba(27,94,63,.04)',
-      border: '1px solid rgba(27,94,63,.2)',
-      borderRadius: 6
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 600,
-      fontSize: 13,
-      marginBottom: 8
-    }
-  }, "\u2601\uFE0F Firestore backup"), cloudTs && /*#__PURE__*/React.createElement("div", {
+  }, "Saves participants, PINs, all predictions and bonus picks to Firestore. Also export a local JSON file."), cloudTs && /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: 'var(--ink-soft)',
       marginBottom: 8
     }
-  }, "Last cloud save: ", /*#__PURE__*/React.createElement("strong", null, cloudTs)), /*#__PURE__*/React.createElement("div", {
+  }, "Last cloud backup: ", /*#__PURE__*/React.createElement("strong", null, cloudTs)), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 8,
       flexWrap: 'wrap'
     }
   }, /*#__PURE__*/React.createElement("button", {
-    className: "btn btn-green",
+    style: btnStyle('var(--forest)', busy === 'save'),
     onClick: saveToCloud,
-    disabled: savingCloud,
+    disabled: busy === 'save'
+  }, busy === 'save' ? '⏳ Saving…' : '☁️ Save to Firestore'), /*#__PURE__*/React.createElement("button", {
+    style: btnStyle('var(--ink)', busy === 'dl'),
+    onClick: downloadBackup,
+    disabled: busy === 'dl'
+  }, busy === 'dl' ? '⏳…' : '⬇️ Download JSON'))), /*#__PURE__*/React.createElement("div", {
+    className: "card",
     style: {
-      flex: 1,
-      justifyContent: 'center',
-      minWidth: 140
+      padding: 16,
+      borderLeft: '3px solid var(--amber)'
     }
-  }, savingCloud ? '⏳ Saving…' : '☁️ Save to Firestore'), /*#__PURE__*/React.createElement("button", {
-    className: "btn",
-    onClick: loadFromCloud,
-    disabled: loadingCloud,
+  }, /*#__PURE__*/React.createElement("div", {
     style: {
-      flex: 1,
-      justifyContent: 'center',
-      minWidth: 140,
-      background: '#2980b9'
+      fontWeight: 700,
+      fontSize: 14,
+      marginBottom: 4
     }
-  }, loadingCloud ? '⏳ Loading…' : '⬇️ Load from Firestore')), backupTs && /*#__PURE__*/React.createElement("div", {
+  }, "\u267B\uFE0F Restore from Firestore Backup"), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11,
-      color: 'var(--forest)',
+      fontSize: 12,
+      color: 'var(--ink-soft)',
+      marginBottom: 10
+    }
+  }, "Pick exactly what to restore from the last saved backup. Each option overwrites only that data."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    style: btnStyle('var(--amber)', busy === 'restore'),
+    disabled: busy === 'restore',
+    onClick: () => doRestore('Participants & PINs', async bk => {
+      await Promise.all([storage.set('participants', bk.participants || []), storage.set('pins', bk.pins || {})]);
+      onRestoreParticipants && onRestoreParticipants(bk.participants || []);
+      onRestorePins && onRestorePins(bk.pins || {});
+      setMsg(`✅ Participants restored — ${(bk.participants || []).length} users.`);
+      auditLog('RESTORE_PARTICIPANTS', 'participants', {
+        count: (bk.participants || []).length
+      });
+    })
+  }, "\u267B\uFE0F Restore Participants & PINs"), /*#__PURE__*/React.createElement("button", {
+    style: btnStyle('#2980b9', busy === 'restore'),
+    disabled: busy === 'restore',
+    onClick: () => doRestore('All Predictions', async bk => {
+      const preds = bk.predictions || {};
+      await Promise.all(Object.entries(preds).map(([u, p]) => storage.setUserField('predictions', u, p)));
+      onRestorePredictions && onRestorePredictions(preds);
+      setMsg(`✅ Predictions restored for ${Object.keys(preds).length} users.`);
+      auditLog('RESTORE_PREDICTIONS', 'predictions', {
+        users: Object.keys(preds).length
+      });
+    })
+  }, "\u267B\uFE0F Restore All Predictions"), /*#__PURE__*/React.createElement("button", {
+    style: btnStyle('#8e44ad', busy === 'restore'),
+    disabled: busy === 'restore',
+    onClick: () => doRestore('Bonus Picks', async bk => {
+      const bp = bk.bonusPicks || {};
+      await Promise.all(Object.entries(bp).map(([u, p]) => storage.setUserField('bonus-picks', u, p)));
+      onRestoreBonusPicks && onRestoreBonusPicks(bp);
+      setMsg(`✅ Bonus picks restored for ${Object.keys(bp).length} users.`);
+      auditLog('RESTORE_BONUS_PICKS', 'bonus-picks', {
+        users: Object.keys(bp).length
+      });
+    })
+  }, "\u267B\uFE0F Restore Bonus Picks"), /*#__PURE__*/React.createElement("button", {
+    style: btnStyle('var(--burgundy)', busy === 'restore'),
+    disabled: busy === 'restore',
+    onClick: () => doRestore('EVERYTHING', async bk => {
+      const preds = bk.bonusPicks || {};
+      const bp = bk.bonusPicks || {};
+      await Promise.all([storage.set('participants', bk.participants || []), storage.set('pins', bk.pins || {}), ...Object.entries(bk.predictions || {}).map(([u, p]) => storage.setUserField('predictions', u, p)), ...Object.entries(bk.bonusPicks || {}).map(([u, p]) => storage.setUserField('bonus-picks', u, p))]);
+      onRestoreParticipants && onRestoreParticipants(bk.participants || []);
+      onRestorePins && onRestorePins(bk.pins || {});
+      onRestorePredictions && onRestorePredictions(bk.predictions || {});
+      onRestoreBonusPicks && onRestoreBonusPicks(bk.bonusPicks || {});
+      setMsg(`✅ Full restore — ${(bk.participants || []).length} users, ${Object.keys(bk.predictions || {}).length} predictions.`);
+      auditLog('RESTORE_EVERYTHING', 'all', {
+        users: (bk.participants || []).length,
+        predictions: Object.keys(bk.predictions || {}).length
+      });
+    })
+  }, "\u26A0\uFE0F Restore EVERYTHING"))), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 16,
+      borderLeft: '3px solid #2980b9'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 14,
+      marginBottom: 4
+    }
+  }, "\uD83D\uDD04 Rebuild Participants"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-soft)',
+      marginBottom: 10
+    }
+  }, "Scans ", /*#__PURE__*/React.createElement("code", null, "predictions"), " and ", /*#__PURE__*/React.createElement("code", null, "bonus-picks"), " Firestore docs to find all user names and merges any missing ones back into the participants list."), /*#__PURE__*/React.createElement("button", {
+    style: btnStyle('#2980b9', busy === 'rebuild'),
+    onClick: handleRebuild,
+    disabled: busy === 'rebuild'
+  }, busy === 'rebuild' ? '⏳ Scanning…' : '🔄 Rebuild Now'), rebuildLog && /*#__PURE__*/React.createElement("div", {
+    style: {
       marginTop: 8,
+      fontSize: 12,
+      fontWeight: 600,
+      color: rebuildLog.startsWith('✅') ? 'var(--forest)' : 'var(--burgundy)'
+    }
+  }, rebuildLog)), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 16,
+      borderLeft: '3px solid #8e44ad'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 14,
+      marginBottom: 4
+    }
+  }, "\uD83D\uDD0D Cross-Source User Audit"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-soft)',
+      marginBottom: 10
+    }
+  }, "Compares participants list vs predictions, bonus-picks, and pins docs to find anyone missing."), /*#__PURE__*/React.createElement("button", {
+    style: btnStyle('#8e44ad', busy === 'diag'),
+    onClick: handleDiagnose,
+    disabled: busy === 'diag'
+  }, busy === 'diag' ? '⏳ Scanning…' : '🔍 Run Audit'), diagResult && (diagResult.error ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8,
+      fontSize: 12,
+      color: 'var(--burgundy)',
       fontWeight: 600
     }
-  }, "\u2705 In-memory snapshot: ", backupTs, " \u2014 ", Object.keys(backupData?.predictions || {}).length, " predictions, ", Object.keys(backupData?.bonusPicks || {}).length, " bonus picks")), /*#__PURE__*/React.createElement("div", {
+  }, "\u274C ", diagResult.error) : /*#__PURE__*/React.createElement("div", {
     style: {
-      marginBottom: 16,
-      padding: '12px 14px',
-      background: 'rgba(41,128,185,.04)',
-      border: '1px solid rgba(41,128,185,.2)',
-      borderRadius: 6
+      marginTop: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 600,
-      fontSize: 13,
-      marginBottom: 8
-    }
-  }, "\uD83D\uDCF8 Local snapshot & download"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
-      gap: 8,
-      flexWrap: 'wrap'
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "btn",
-    onClick: doBackup,
-    style: {
-      flex: 1,
-      justifyContent: 'center',
-      minWidth: 120,
-      background: 'var(--ink)'
-    }
-  }, "\uD83D\uDCF8 Take Snapshot"), /*#__PURE__*/React.createElement("button", {
-    className: "btn",
-    onClick: downloadBackup,
-    disabled: !backupData,
-    style: {
-      flex: 1,
-      justifyContent: 'center',
-      minWidth: 120,
-      background: 'var(--ink-soft)'
-    }
-  }, "\u2B07\uFE0F Download JSON"))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 16,
-      padding: '12px 14px',
-      background: 'rgba(214,137,42,.05)',
-      border: '1px solid rgba(214,137,42,.25)',
-      borderRadius: 6
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 600,
-      fontSize: 13,
-      marginBottom: 8
-    }
-  }, "\u267B\uFE0F Restore all users from snapshot"), /*#__PURE__*/React.createElement("button", {
-    className: "btn btn-amber",
-    onClick: () => doRestore(null),
-    disabled: !backupData,
-    style: {
-      width: '100%',
-      justifyContent: 'center'
-    }
-  }, "\u267B\uFE0F Restore All Predictions")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: '12px 14px',
-      background: 'rgba(41,128,185,.04)',
-      border: '1px solid rgba(41,128,185,.2)',
-      borderRadius: 6
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 600,
-      fontSize: 13,
-      marginBottom: 8
-    }
-  }, "\uD83D\uDC64 Restore single user from snapshot"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 8,
+      gap: 6,
       flexWrap: 'wrap',
       marginBottom: 8
     }
-  }, [...participants].sort().map(p => /*#__PURE__*/React.createElement("button", {
-    key: p,
-    onClick: () => setRestoreUser(p),
+  }, [['Participants', diagResult.counts.parts, 'var(--forest)'], ['Predictions', diagResult.counts.preds, '#2980b9'], ['Bonus Picks', diagResult.counts.bp, '#8e44ad'], ['PINs', diagResult.counts.pins, 'var(--amber)'], ['Total unique', diagResult.counts.total, 'var(--ink)']].map(([l, v, c]) => /*#__PURE__*/React.createElement("div", {
+    key: l,
     style: {
-      padding: '5px 12px',
-      borderRadius: 20,
-      border: `1px solid ${restoreUser === p ? 'var(--amber)' : 'var(--line)'}`,
-      background: restoreUser === p ? 'rgba(214,137,42,.1)' : 'var(--cream2)',
-      cursor: 'pointer',
-      fontSize: 12,
-      fontFamily: 'inherit',
-      fontWeight: restoreUser === p ? 700 : 500
+      background: 'var(--cream2)',
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      padding: '4px 10px',
+      fontSize: 11
     }
-  }, p))), /*#__PURE__*/React.createElement("button", {
-    className: "btn",
-    onClick: () => doRestore(restoreUser),
-    disabled: !backupData || !restoreUser,
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--ink-soft)'
+    }
+  }, l, ": "), /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: c
+    }
+  }, v)))), diagResult.missing.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--forest)',
+      fontWeight: 600
+    }
+  }, "\u2705 All users are in the participants list.") : /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: 'var(--burgundy)',
+      marginBottom: 6
+    }
+  }, "\u26A0\uFE0F ", diagResult.missing.length, " user(s) not in participants list:"), /*#__PURE__*/React.createElement("table", {
     style: {
       width: '100%',
-      justifyContent: 'center',
-      background: '#2980b9'
+      borderCollapse: 'collapse',
+      fontSize: 11
     }
-  }, "\uD83D\uDC64 Restore ", restoreUser || '(select user above)')), restoreMsg && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
     style: {
-      marginTop: 12,
+      background: 'var(--cream2)'
+    }
+  }, ['Name', 'Prediction', 'Bonus Pick', 'PIN'].map(h => /*#__PURE__*/React.createElement("th", {
+    key: h,
+    style: {
+      padding: '4px 8px',
+      textAlign: 'left',
+      fontWeight: 700,
+      borderBottom: '1px solid var(--line)',
+      color: 'var(--ink-soft)'
+    }
+  }, h)))), /*#__PURE__*/React.createElement("tbody", null, diagResult.missing.map(r => /*#__PURE__*/React.createElement("tr", {
+    key: r.name,
+    style: {
+      borderBottom: '1px solid var(--line)'
+    }
+  }, /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: '4px 8px',
+      fontWeight: 600
+    }
+  }, r.name), /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: '4px 8px',
+      color: r.hasPred ? 'var(--forest)' : 'var(--burgundy)'
+    }
+  }, r.hasPred ? '✅' : '❌'), /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: '4px 8px',
+      color: r.hasBp ? 'var(--forest)' : 'var(--burgundy)'
+    }
+  }, r.hasBp ? '✅' : '❌'), /*#__PURE__*/React.createElement("td", {
+    style: {
+      padding: '4px 8px',
+      color: r.hasPin ? 'var(--forest)' : 'var(--burgundy)'
+    }
+  }, r.hasPin ? '✅' : '❌'))))))))), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      padding: 16,
+      borderLeft: '3px solid var(--ink-soft)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 4,
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 14
+    }
+  }, "\uD83D\uDCCB Audit Log"), /*#__PURE__*/React.createElement("button", {
+    style: {
+      ...btnStyle('var(--ink)', auditLoading),
+      padding: '5px 12px'
+    },
+    onClick: loadAuditLog,
+    disabled: auditLoading
+  }, auditLoading ? '⏳' : '🔄 Load')), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-soft)',
+      marginBottom: 10
+    }
+  }, "Last 100 admin backup/restore actions."), auditLogs.length === 0 && !auditLoading && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-soft)',
+      textAlign: 'center',
+      padding: '12px 0'
+    }
+  }, "Click Load to fetch log entries."), auditLogs.map(log => {
+    const d = new Date(log.ts);
+    const meta = {
+      BACKUP_SAVED: {
+        col: 'var(--forest)',
+        label: 'Backup Saved'
+      },
+      RESTORE_PARTICIPANTS: {
+        col: 'var(--burgundy)',
+        label: '⚠️ Restore Participants'
+      },
+      RESTORE_PREDICTIONS: {
+        col: '#e67e22',
+        label: 'Restore Predictions'
+      },
+      RESTORE_BONUS_PICKS: {
+        col: '#8e44ad',
+        label: 'Restore Bonus Picks'
+      },
+      RESTORE_EVERYTHING: {
+        col: 'var(--burgundy)',
+        label: '⚠️ Restore EVERYTHING'
+      },
+      REBUILD_PARTICIPANTS: {
+        col: '#2980b9',
+        label: 'Rebuild Participants'
+      }
+    }[log.action] || {
+      col: 'var(--ink)',
+      label: log.action
+    };
+    return /*#__PURE__*/React.createElement("div", {
+      key: log.id,
+      style: {
+        display: 'grid',
+        gridTemplateColumns: '100px 1fr 1fr',
+        gap: 6,
+        padding: '8px 10px',
+        borderRadius: 6,
+        background: log.action.startsWith('RESTORE_') || log.action === 'REBUILD_PARTICIPANTS' ? 'rgba(192,57,43,.04)' : 'var(--paper)',
+        border: '1px solid var(--line)',
+        marginBottom: 5,
+        fontSize: 11
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: 'var(--ink-soft)',
+        lineHeight: 1.4
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 600
+      }
+    }, d.toLocaleDateString([], {
+      day: '2-digit',
+      month: 'short'
+    })), /*#__PURE__*/React.createElement("div", null, d.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 800,
+        color: meta.col
+      }
+    }, meta.label), /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: 'var(--ink-soft)'
+      }
+    }, log.action === 'BACKUP_SAVED' && `${log.users || 0} users, ${log.predictions || 0} preds`, log.action === 'RESTORE_PARTICIPANTS' && `${log.count || 0} users`, log.action === 'RESTORE_PREDICTIONS' && `${log.users || 0} users`, log.action === 'RESTORE_EVERYTHING' && `${log.users || 0} users, ${log.predictions || 0} preds`, log.action === 'REBUILD_PARTICIPANTS' && `${log.before || 0}→${log.after || 0}. Added: ${log.added || 'none'}`));
+  })), msg && /*#__PURE__*/React.createElement("div", {
+    style: {
       padding: '10px 14px',
-      background: restoreMsg.startsWith('❌') ? 'rgba(159,27,27,.08)' : 'rgba(27,94,63,.08)',
       borderRadius: 6,
+      background: msg.startsWith('❌') ? 'rgba(159,27,27,.08)' : 'rgba(27,94,63,.08)',
       fontSize: 13,
       fontWeight: 600,
-      color: restoreMsg.startsWith('❌') ? 'var(--burgundy)' : 'var(--forest)'
+      color: msg.startsWith('❌') ? 'var(--burgundy)' : 'var(--forest)'
     }
-  }, restoreMsg));
+  }, msg));
 };
 
 // ── ADMIN VIEW ────────────────────────────────────────────────────
@@ -6726,7 +7036,11 @@ const AdminView = ({
   liveGoals = {},
   onSaveLiveGoals,
   manualLock = false,
-  onToggleManualLock
+  onToggleManualLock,
+  onRestoreParticipants,
+  onRestorePredictions,
+  onRestoreBonusPicks,
+  onRestorePins
 }) => {
   const [adminPw, setAdminPw] = useState('');
   const [authed, setAuthed] = useState(bypassAuth);
@@ -7581,7 +7895,20 @@ const AdminView = ({
   }, /*#__PURE__*/React.createElement("strong", null, "\uD83D\uDCA1 Tip:"), " Set status to ", /*#__PURE__*/React.createElement("code", null, "FT"), " and uncheck \"Enable override\" once ESPN shows the correct final score.")), section === 'backup' && /*#__PURE__*/React.createElement(BackupPanel, {
     predictions: predictions,
     bonusPicks: bonusPicks,
-    participants: participants
+    participants: participants,
+    userPins: userPins,
+    onRestoreParticipants: parts => {
+      if (onRestoreParticipants) onRestoreParticipants(parts);
+    },
+    onRestorePredictions: preds => {
+      if (onRestorePredictions) onRestorePredictions(preds);
+    },
+    onRestoreBonusPicks: bp => {
+      if (onRestoreBonusPicks) onRestoreBonusPicks(bp);
+    },
+    onRestorePins: pins => {
+      if (onRestorePins) onRestorePins(pins);
+    }
   }), section === 'users' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
@@ -9539,7 +9866,25 @@ const App = () => {
     liveGoals: liveGoals,
     onSaveLiveGoals: saveLiveGoals,
     manualLock: manualLock,
-    onToggleManualLock: toggleManualLock
+    onToggleManualLock: toggleManualLock,
+    onRestoreParticipants: parts => {
+      setParticipants(parts);
+    },
+    onRestorePredictions: preds => {
+      setPredictions(prev => ({
+        ...prev,
+        ...preds
+      }));
+    },
+    onRestoreBonusPicks: bp => {
+      setBonusPicks(prev => ({
+        ...prev,
+        ...bp
+      }));
+    },
+    onRestorePins: pins => {
+      setUserPins(pins);
+    }
   })), easterEgg && ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
