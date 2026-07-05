@@ -500,7 +500,7 @@ const CSS = `
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}
   .page-grid{display:grid;grid-template-columns:230px 1fr 230px;gap:20px;max-width:1440px;margin:0 auto;padding:20px 16px;align-items:start;}
   .page-grid>*{min-width:0;}
-  .page-grid>main{min-height:calc(100vh - 150px);}
+  .page-grid>main{min-height:calc(100vh - 150px);max-width:760px;width:100%;}
   .sidebar-left,.sidebar-right{position:sticky;top:148px;align-self:start;}
   .qft-header{position:sticky;top:0;z-index:200;background:var(--paper);border-bottom:1px solid var(--line);}
   .tab-btn{padding:10px 14px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;color:var(--ink-soft);border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
@@ -541,12 +541,13 @@ const CSS = `
     .match-team img,.match-team .fi{max-width:52px!important;}
   }
   .sidebar-left{display:block;}@media(max-width:800px){.sidebar-left{display:none;}}
-  .fan-header{padding:28px 24px}
-  .fan-title{font-size:32px;font-weight:800;margin:0 0 12px;letter-spacing:-.02em;color:white;line-height:1.1}
-  .fan-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:16px}
+  .fan-header{padding:24px 24px}
+  .fan-title{font-size:36px;font-weight:900;margin:0 0 12px;letter-spacing:-.03em;color:white;line-height:1.05}
+  .fan-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:16px}
   @media(max-width:600px){
-    .fan-header{padding:16px 14px}
-    .fan-title{font-size:20px;margin-bottom:8px}
+    .fan-header{padding:18px 14px}
+    .fan-title{font-size:24px;margin-bottom:10px}
+    .fan-stats{grid-template-columns:repeat(2,1fr);gap:6px}
     .fan-stats{grid-template-columns:repeat(2,1fr);gap:6px;margin-top:10px}
   }
 `;
@@ -3272,9 +3273,26 @@ const PredictView = ({
         width: 'fit-content',
         margin: '0 auto 6px'
       }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: () => {
+        window.__eggTaps = (window.__eggTaps || 0) + 1;
+        clearTimeout(window.__eggTimer);
+        if (window.__eggTaps >= 3) {
+          window.__eggTaps = 0;
+          window.dispatchEvent(new CustomEvent('qft-egg'));
+        } else {
+          window.__eggTimer = setTimeout(() => {
+            window.__eggTaps = 0;
+          }, 900);
+        }
+      },
+      style: {
+        cursor: 'pointer'
+      },
+      title: "Click me..."
     }, /*#__PURE__*/React.createElement(SpinningBall, {
       size: 30
-    }), /*#__PURE__*/React.createElement("span", {
+    })), /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 11,
         fontWeight: 600,
@@ -3330,7 +3348,92 @@ const PredictView = ({
       color: '#94a3b8',
       marginTop: 3
     }
-  }, "FIFA #", FIFA_RANKINGS[away])))), /*#__PURE__*/React.createElement("div", {
+  }, "FIFA #", FIFA_RANKINGS[away])))), !hasResult && !locked && (() => {
+    const hasPred = prediction && prediction.h != null && prediction.h !== '';
+    const TIPS = hasPred ? [{
+      icon: '⚡',
+      text: 'Boost your score — add goal times within 5 min for +10 pts each!'
+    }, {
+      icon: '⚽',
+      text: 'Name the scorer correctly for +8 pts per goal. Every detail counts.'
+    }, {
+      icon: '🟨',
+      text: 'Predict yellow & red cards per team — +3 pts each if correct.'
+    }, {
+      icon: '🟠',
+      text: 'Fouls prediction: +8 pts if you nail the exact foul count per team.'
+    }, {
+      icon: '🏆',
+      text: `Who lifts the trophy? Correct QF winner earns you +20 pts!`
+    }, {
+      icon: '🕐',
+      text: 'Earlier submission wins on tiebreaks — your timestamp is locked in.'
+    }] : [{
+      icon: '👋',
+      text: 'Enter your score prediction below — picks auto-save instantly.'
+    }, {
+      icon: '🎯',
+      text: `Exact score correct? That's ${SCORE_EXACT_BONUS + SCORE_PER_GOAL * 2 + SCORE_CORRECT_RESULT} pts in one shot!`
+    }, {
+      icon: '🏆',
+      text: 'Predict the QF winner (incl. pens) for a massive +20 pts bonus.'
+    }, {
+      icon: '⚡',
+      text: 'Add goal times & scorers for extra pts — every minute matters.'
+    }, {
+      icon: '🔒',
+      text: 'Predictions lock at kickoff — don\'t wait, submit yours now!'
+    }, {
+      icon: '📊',
+      text: 'Check Fan Picks to see what the crowd is predicting.'
+    }];
+    const [idx, setIdx] = React.useState(0);
+    const [vis, setVis] = React.useState(true);
+    React.useEffect(() => {
+      const t = setInterval(() => {
+        setVis(false);
+        setTimeout(() => {
+          setIdx(i => (i + 1) % TIPS.length);
+          setVis(true);
+        }, 300);
+      }, 5000);
+      return () => clearInterval(t);
+    }, [hasPred]);
+    const tip = TIPS[idx];
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: 12,
+        padding: '9px 14px',
+        background: 'linear-gradient(135deg,rgba(27,94,63,.06),rgba(214,137,42,.04))',
+        border: '1px solid rgba(27,94,63,.15)',
+        borderRadius: 8,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        opacity: vis ? 1 : 0,
+        transition: 'opacity .3s'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 18,
+        flexShrink: 0
+      }
+    }, tip.icon), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 12,
+        color: 'var(--ink)',
+        lineHeight: 1.4,
+        flex: 1
+      }
+    }, tip.text), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        color: 'var(--ink-soft)',
+        flexShrink: 0,
+        fontFamily: 'JetBrains Mono,monospace'
+      }
+    }, idx + 1, "/", TIPS.length));
+  })(), /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       marginBottom: 16
@@ -4827,11 +4930,17 @@ const FanPicksView = ({
       aWin = 0,
       draw = 0;
     const scoreCounts = {};
+    const allH = [],
+      allA = [],
+      allTotals = [];
     withPicks.forEach(name => {
       const p = predictions[name];
       if (!p || p.h == null) return;
       const pH = parseInt(p.h),
         pA = parseInt(p.a);
+      allH.push(pH);
+      allA.push(pA);
+      allTotals.push(pH + pA);
       if (pH > pA) hWin++;else if (pA > pH) aWin++;else draw++;
       const key = `${pH}–${pA}`;
       scoreCounts[key] = (scoreCounts[key] || 0) + 1;
@@ -4845,13 +4954,36 @@ const FanPicksView = ({
       const s = computeScore(predictions[n] || {}, result, home, away);
       return s.correctResult;
     }).length / total * 100) : null;
+    const n = allH.length || 1;
+    const avgH = (allH.reduce((s, v) => s + v, 0) / n).toFixed(1);
+    const avgA = (allA.reduce((s, v) => s + v, 0) / n).toFixed(1);
+    const avgTotal = (allTotals.reduce((s, v) => s + v, 0) / n).toFixed(1);
+    const over25 = allTotals.filter(v => v > 2).length;
+    const btts = withPicks.filter(n => {
+      const p = predictions[n] || {};
+      return parseInt(p.h) > 0 && parseInt(p.a) > 0;
+    }).length;
+    const cleanSheet = withPicks.filter(n => {
+      const p = predictions[n] || {};
+      return parseInt(p.h) === 0 || parseInt(p.a) === 0;
+    }).length;
+    const maxGoals = allTotals.length ? Math.max(...allTotals) : 0;
+    const minGoals = allTotals.length ? Math.min(...allTotals) : 0;
     return {
       hWin,
       aWin,
       draw,
       topScores,
       exactCount,
-      avgAccuracy
+      avgAccuracy,
+      avgH,
+      avgA,
+      avgTotal,
+      over25,
+      btts,
+      cleanSheet,
+      maxGoals,
+      minGoals
     };
   }, [withPicks, predictions, result, home, away, hasResult, total]);
   const {
@@ -4860,18 +4992,63 @@ const FanPicksView = ({
     draw,
     topScores,
     exactCount,
-    avgAccuracy
+    avgAccuracy,
+    avgH,
+    avgA,
+    avgTotal,
+    over25,
+    btts,
+    cleanSheet,
+    maxGoals,
+    minGoals
   } = stats;
   const max = Math.max(hWin, aWin, draw, 1);
+  const pct = n => total ? Math.round(n / total * 100) : 0;
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "fan-header",
     style: {
-      marginBottom: 20,
-      background: 'linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)',
-      borderRadius: 12,
+      marginBottom: 16,
+      background: 'linear-gradient(135deg,#1a1a2e,#16213e)',
+      borderRadius: 10,
       color: 'white',
       position: 'relative',
       overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      top: -40,
+      right: -40,
+      width: 180,
+      height: 180,
+      borderRadius: '50%',
+      background: 'radial-gradient(circle,rgba(255,215,0,.15) 0%,transparent 70%)',
+      pointerEvents: 'none'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      bottom: -30,
+      left: -20,
+      width: 140,
+      height: 140,
+      borderRadius: '50%',
+      background: 'radial-gradient(circle,rgba(237,41,57,.12) 0%,transparent 70%)',
+      pointerEvents: 'none'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'relative',
+      zIndex: 1,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 20,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: '1 1 220px',
+      minWidth: 0
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4879,64 +5056,363 @@ const FanPicksView = ({
       fontWeight: 700,
       letterSpacing: '.2em',
       textTransform: 'uppercase',
-      color: 'rgba(255,255,255,.5)',
-      marginBottom: 8
+      color: 'rgba(255,255,255,.4)',
+      marginBottom: 8,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6
     }
-  }, "FIFA World Cup 2026 \xB7 Crowd Intelligence"), /*#__PURE__*/React.createElement("h2", {
-    className: "fan-title display"
-  }, "Quarter Final Thursday \u2014 ", /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {
     style: {
-      color: '#FFD700'
+      display: 'inline-block',
+      width: 16,
+      height: 1,
+      background: 'rgba(255,255,255,.25)'
     }
-  }, "Fan Predictions")), /*#__PURE__*/React.createElement("div", {
-    className: "fan-stats"
+  }), "FIFA World Cup 2026 \xB7 Quarter-Final", /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-block',
+      width: 16,
+      height: 1,
+      background: 'rgba(255,255,255,.25)'
+    }
+  })), /*#__PURE__*/React.createElement("h2", {
+    className: "fan-title display",
+    style: {
+      margin: '0 0 10px'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: 'linear-gradient(90deg,#fff,#c7d2fe)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text'
+    }
+  }, "Fan"), ' ', /*#__PURE__*/React.createElement("span", {
+    style: {
+      background: 'linear-gradient(90deg,#FFD700,#FFA500)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text'
+    }
+  }, "Predictions")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: "France",
+    size: 16
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: 'rgba(255,255,255,.85)'
+    }
+  }, "France")), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'rgba(255,255,255,.35)',
+      fontWeight: 600,
+      letterSpacing: 2
+    }
+  }, "VS"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: "Morocco",
+    size: 16
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: 'rgba(255,255,255,.85)'
+    }
+  }, "Morocco")), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'rgba(255,255,255,.35)'
+    }
+  }, "\xB7 Thu Jul 9, 2026"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(2,1fr)',
+      gap: 6,
+      flexShrink: 0,
+      width: 220
+    }
   }, [{
     label: 'Players',
     val: participants.length,
-    sub: 'competing'
+    sub: 'competing',
+    color: '#818cf8'
   }, {
     label: 'Predictions',
     val: total,
-    sub: 'submitted'
+    sub: 'submitted',
+    color: '#34d399'
   }, avgAccuracy !== null && {
-    label: 'Avg Accuracy',
+    label: 'Accuracy',
     val: `${avgAccuracy}%`,
-    sub: 'crowd correct'
+    sub: 'crowd correct',
+    color: '#fbbf24'
   }, hasResult && {
-    label: 'Exact Scores',
+    label: 'Exact',
     val: exactCount,
-    sub: 'nailed it'
+    sub: 'nailed it 🎯',
+    color: '#f472b6'
   }].filter(Boolean).map((stat, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     style: {
-      background: 'rgba(255,255,255,.08)',
-      borderRadius: 8,
-      padding: '12px 10px',
-      textAlign: 'center'
+      background: 'rgba(255,255,255,.07)',
+      borderRadius: 7,
+      padding: '10px 8px',
+      textAlign: 'center',
+      border: '1px solid rgba(255,255,255,.1)'
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "mono",
     style: {
-      fontSize: 22,
-      fontWeight: 800,
-      color: 'white'
+      fontSize: 20,
+      fontWeight: 900,
+      color: stat.color,
+      lineHeight: 1
     }
   }, stat.val), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 9,
+      fontSize: 8,
       fontWeight: 700,
-      letterSpacing: '.06em',
+      letterSpacing: '.05em',
       textTransform: 'uppercase',
       color: 'rgba(255,255,255,.5)',
       marginTop: 4
     }
   }, stat.label), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 10,
-      color: 'rgba(255,255,255,.35)',
+      fontSize: 9,
+      color: 'rgba(255,255,255,.28)',
       marginTop: 2
     }
-  }, stat.sub))))), /*#__PURE__*/React.createElement("div", {
+  }, stat.sub)))))), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 16,
+      background: 'linear-gradient(135deg,#fff9f0,#fff)',
+      borderLeft: '4px solid var(--amber)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "micro-caps",
+    style: {
+      marginBottom: 14,
+      color: 'var(--amber)'
+    }
+  }, "\u26A1 Result Consensus"), total > 0 ? (() => {
+    const OUTCOMES = [{
+      label: home && home !== 'TBD' ? home : 'Home',
+      sub: 'Win',
+      flag: home && home !== 'TBD' ? home : null,
+      count: hWin,
+      color: '#3b82f6',
+      bg: 'rgba(59,130,246,.08)'
+    }, {
+      label: 'Draw',
+      sub: '',
+      flag: null,
+      count: draw,
+      color: '#D6892A',
+      bg: 'rgba(214,137,42,.08)'
+    }, {
+      label: away && away !== 'TBD' ? away : 'Away',
+      sub: 'Win',
+      flag: away && away !== 'TBD' ? away : null,
+      count: aWin,
+      color: '#10b981',
+      bg: 'rgba(16,185,129,.08)'
+    }];
+    const R = 52,
+      Cx = 68,
+      stroke = 13,
+      circ = 2 * Math.PI * R;
+    let offset = 0;
+    const slices = OUTCOMES.map(o => {
+      const dash = circ * (pct(o.count) / 100);
+      const s = {
+        ...o,
+        dash,
+        gap: circ - dash,
+        offset
+      };
+      offset += dash;
+      return s;
+    });
+    const top = OUTCOMES.reduce((a, b) => b.count > a.count ? b : a, OUTCOMES[0]);
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 20,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'relative',
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement("svg", {
+      width: Cx * 2,
+      height: Cx * 2,
+      viewBox: `0 0 ${Cx * 2} ${Cx * 2}`
+    }, /*#__PURE__*/React.createElement("circle", {
+      cx: Cx,
+      cy: Cx,
+      r: R,
+      fill: "none",
+      stroke: "var(--cream2)",
+      strokeWidth: stroke
+    }), slices.map((s, i) => s.dash > 0 && /*#__PURE__*/React.createElement("circle", {
+      key: i,
+      cx: Cx,
+      cy: Cx,
+      r: R,
+      fill: "none",
+      stroke: s.color,
+      strokeWidth: stroke,
+      strokeDasharray: `${s.dash} ${s.gap}`,
+      strokeDashoffset: -s.offset + circ * .25,
+      style: {
+        transition: 'stroke-dasharray .6s ease'
+      },
+      strokeLinecap: "butt"
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'none'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 17,
+        fontWeight: 900,
+        color: top.color,
+        lineHeight: 1,
+        fontFamily: 'JetBrains Mono,monospace'
+      }
+    }, pct(top.count), "%"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 8,
+        fontWeight: 700,
+        letterSpacing: '.05em',
+        textTransform: 'uppercase',
+        color: 'var(--ink-soft)',
+        marginTop: 2,
+        textAlign: 'center'
+      }
+    }, top.label))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 180
+      }
+    }, OUTCOMES.map(o => {
+      const p_ = pct(o.count);
+      return /*#__PURE__*/React.createElement("div", {
+        key: o.label,
+        style: {
+          marginBottom: 9,
+          padding: '8px 10px',
+          background: o.bg,
+          borderRadius: 7
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 5
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          fontWeight: 700,
+          fontSize: 12
+        }
+      }, o.flag && /*#__PURE__*/React.createElement(Flag, {
+        team: o.flag,
+        size: 13
+      }), o.label, o.sub && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontWeight: 400,
+          color: 'var(--ink-soft)',
+          fontSize: 10
+        }
+      }, o.sub), o.flag && FIFA_RANKINGS[o.flag] && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 9,
+          color: 'var(--ink-soft)',
+          background: 'rgba(0,0,0,.06)',
+          padding: '1px 4px',
+          borderRadius: 3
+        }
+      }, "#", FIFA_RANKINGS[o.flag])), /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontFamily: 'JetBrains Mono,monospace',
+          fontWeight: 900,
+          fontSize: 14,
+          color: o.color
+        }
+      }, p_, "%", /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 10,
+          color: 'var(--ink-soft)',
+          fontWeight: 400,
+          marginLeft: 3
+        }
+      }, "(", o.count, ")"))), /*#__PURE__*/React.createElement("div", {
+        style: {
+          height: 5,
+          background: 'rgba(0,0,0,.07)',
+          borderRadius: 3,
+          overflow: 'hidden'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          height: '100%',
+          width: `${p_}%`,
+          background: o.color,
+          borderRadius: 3,
+          transition: 'width .6s cubic-bezier(.4,0,.2,1)'
+        }
+      })));
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: 'var(--ink-soft)',
+        marginTop: 4
+      }
+    }, total, " prediction", total !== 1 ? 's' : '', " \xB7 updates live \uD83D\uDD34")));
+  })() : /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-soft)',
+      fontStyle: 'italic'
+    }
+  }, "No predictions yet.")), total > 0 && /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       marginBottom: 16
@@ -4944,152 +5420,211 @@ const FanPicksView = ({
   }, /*#__PURE__*/React.createElement("div", {
     className: "micro-caps",
     style: {
-      marginBottom: 12
+      marginBottom: 14,
+      color: 'var(--forest)'
     }
-  }, "Who the crowd is backing"), [{
-    label: `${home && home !== 'TBD' ? home : 'Home'} Win`,
-    flag: home && home !== 'TBD' ? home : null,
-    count: hWin,
-    color: 'var(--burgundy)',
-    icon: '🏠'
+  }, "\uD83D\uDCCA Goals Intelligence"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 10,
+      marginBottom: 10
+    }
+  }, [{
+    label: `Avg ${home || 'Home'} Goals`,
+    val: avgH,
+    color: '#3b82f6',
+    sub: 'per prediction'
   }, {
-    label: 'Draw',
-    flag: null,
-    count: draw,
+    label: `Avg ${away || 'Away'} Goals`,
+    val: avgA,
+    color: '#10b981',
+    sub: 'per prediction'
+  }, {
+    label: 'Avg Total Goals',
+    val: avgTotal,
     color: 'var(--amber)',
-    icon: '🤝'
+    sub: 'per match prediction'
   }, {
-    label: `${away && away !== 'TBD' ? away : 'Away'} Win`,
-    flag: away && away !== 'TBD' ? away : null,
-    count: aWin,
-    color: 'var(--forest)',
-    icon: '✈️'
+    label: 'Over 2.5 Goals',
+    val: `${pct(over25)}%`,
+    color: '#8b5cf6',
+    sub: `${over25} of ${total} predict`
   }].map(({
     label,
-    flag,
-    count,
+    val,
     color,
-    icon
+    sub
   }) => /*#__PURE__*/React.createElement("div", {
     key: label,
     style: {
-      marginBottom: 12
+      background: 'var(--cream2)',
+      borderRadius: 8,
+      padding: '10px 12px'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      fontSize: 13,
-      fontWeight: 600,
-      marginBottom: 5,
-      alignItems: 'center',
-      gap: 4
+      fontSize: 22,
+      fontWeight: 900,
+      color,
+      lineHeight: 1,
+      fontFamily: 'JetBrains Mono,monospace'
     }
-  }, /*#__PURE__*/React.createElement("span", {
+  }, val), /*#__PURE__*/React.createElement("div", {
     style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 5
+      fontSize: 11,
+      fontWeight: 700,
+      color: 'var(--ink)',
+      marginTop: 4
     }
-  }, icon, " ", flag && /*#__PURE__*/React.createElement(Flag, {
-    team: flag,
-    size: 14
-  }), flag ? flag : label.replace(' Win', '').replace(' 🤝', ''), flag && FIFA_RANKINGS[flag] && /*#__PURE__*/React.createElement("span", {
+  }, label), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 10,
       color: 'var(--ink-soft)',
-      fontWeight: 400
+      marginTop: 2
     }
-  }, "#", FIFA_RANKINGS[flag])), /*#__PURE__*/React.createElement("span", {
-    className: "mono"
-  }, count, " ", /*#__PURE__*/React.createElement("span", {
+  }, sub)))), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11,
-      color: 'var(--ink-soft)',
-      fontWeight: 400
-    }
-  }, "(", total ? Math.round(count / total * 100) : 0, "%)"))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      height: 10,
-      background: 'var(--cream2)',
-      borderRadius: 5,
-      overflow: 'hidden'
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      height: '100%',
-      width: `${total ? Math.round(count / max * 100) : 0}%`,
-      background: color,
-      borderRadius: 5,
-      transition: 'width .4s'
+      background: 'rgba(16,185,129,.07)',
+      border: '1px solid rgba(16,185,129,.2)',
+      borderRadius: 8,
+      padding: '10px 12px'
     }
-  }))))), topScores.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 18,
+      fontWeight: 900,
+      color: '#10b981',
+      fontFamily: 'JetBrains Mono,monospace'
+    }
+  }, pct(btts), "%"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: 'var(--ink)',
+      marginTop: 3
+    }
+  }, "Both Teams to Score"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-soft)',
+      marginTop: 2
+    }
+  }, btts, " of ", total, " predict goals both ends")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'rgba(139,92,246,.07)',
+      border: '1px solid rgba(139,92,246,.2)',
+      borderRadius: 8,
+      padding: '10px 12px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 18,
+      fontWeight: 900,
+      color: '#8b5cf6',
+      fontFamily: 'JetBrains Mono,monospace'
+    }
+  }, pct(cleanSheet), "%"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      fontWeight: 700,
+      color: 'var(--ink)',
+      marginTop: 3
+    }
+  }, "Clean Sheet"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-soft)',
+      marginTop: 2
+    }
+  }, "At least 1 team keeps a zero")))), topScores.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
-      marginBottom: 16
+      marginBottom: 16,
+      background: 'linear-gradient(135deg,#f0fdf4,#fff)',
+      borderLeft: '4px solid var(--forest)'
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "micro-caps",
     style: {
-      marginBottom: 10
+      marginBottom: 12,
+      color: 'var(--forest)'
     }
-  }, "Most popular score predictions"), topScores.map(([score, cnt], i) => {
+  }, "\uD83C\uDFAF Score Distribution"), topScores.map(([score, cnt], i) => {
     const isActual = hasResult && score === `${result.h}–${result.a}`;
+    const bar = Math.round(cnt / total * 100);
     return /*#__PURE__*/React.createElement("div", {
       key: score,
       style: {
         display: 'flex',
         alignItems: 'center',
         gap: 10,
-        padding: '7px 0',
-        borderBottom: '1px solid var(--line-soft)',
-        background: isActual ? 'rgba(27,67,50,.04)' : 'transparent'
+        padding: '8px 0',
+        borderBottom: '1px solid var(--line-soft)'
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: 700,
         color: 'var(--ink-soft)',
-        minWidth: 14
+        minWidth: 16,
+        textAlign: 'right'
       }
     }, i + 1), /*#__PURE__*/React.createElement("span", {
       className: "mono",
       style: {
-        fontWeight: 700,
+        fontWeight: 800,
         fontSize: 15,
-        flex: 1,
+        minWidth: 44,
         color: isActual ? 'var(--forest)' : 'var(--ink)'
       }
-    }, score, isActual && /*#__PURE__*/React.createElement("span", {
+    }, score), /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 10,
-        marginLeft: 6,
-        color: 'var(--forest)',
-        fontFamily: 'inherit',
-        fontWeight: 600
-      }
-    }, "\u2713 actual")), /*#__PURE__*/React.createElement("span", {
-      className: "mono",
-      style: {
-        fontSize: 12,
-        color: 'var(--ink-soft)'
-      }
-    }, cnt, " pick", cnt !== 1 ? 's' : ''), /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: 60,
-        height: 4,
+        flex: 1,
+        height: 6,
         background: 'var(--cream2)',
-        borderRadius: 2,
+        borderRadius: 3,
         overflow: 'hidden'
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         height: '100%',
-        width: `${Math.round(cnt / total * 100)}%`,
+        width: `${bar}%`,
         background: isActual ? 'var(--forest)' : 'var(--burgundy)',
-        borderRadius: 2
+        borderRadius: 3,
+        transition: 'width .4s'
       }
-    })));
+    })), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        color: isActual ? 'var(--forest)' : 'var(--ink)',
+        fontFamily: 'JetBrains Mono,monospace',
+        minWidth: 32,
+        textAlign: 'right'
+      }
+    }, bar, "%"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        color: 'var(--ink-soft)',
+        minWidth: 50
+      }
+    }, "(", cnt, " pick", cnt !== 1 ? 's' : '', ")"), isActual && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 700,
+        color: '#fff',
+        background: 'var(--forest)',
+        borderRadius: 4,
+        padding: '2px 6px'
+      }
+    }, "ACTUAL"));
   })), /*#__PURE__*/React.createElement("div", {
     className: "card"
   }, /*#__PURE__*/React.createElement("button", {
@@ -5104,20 +5639,23 @@ const FanPicksView = ({
       cursor: 'pointer',
       padding: 0,
       fontFamily: 'inherit',
-      marginBottom: showPicks ? 10 : 0
+      marginBottom: showPicks ? 12 : 0
     }
   }, /*#__PURE__*/React.createElement("span", {
     className: "micro-caps"
-  }, withPicks.length, " prediction", withPicks.length !== 1 ? 's' : ''), /*#__PURE__*/React.createElement("span", {
+  }, "\uD83D\uDC64 Individual Predictions (", withPicks.length, ")"), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11,
       color: 'var(--ink-soft)',
       fontWeight: 600,
       display: 'flex',
       alignItems: 'center',
-      gap: 4
+      gap: 4,
+      background: 'var(--cream2)',
+      padding: '4px 10px',
+      borderRadius: 20
     }
-  }, showPicks ? '▲ Hide' : '▼ Show', " picks")), showPicks && /*#__PURE__*/React.createElement(React.Fragment, null, withPicks.length === 0 && /*#__PURE__*/React.createElement("div", {
+  }, showPicks ? '▲ Hide' : '▼ Reveal', " picks")), showPicks && /*#__PURE__*/React.createElement(React.Fragment, null, withPicks.length === 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       color: 'var(--ink-soft)',
@@ -5126,51 +5664,85 @@ const FanPicksView = ({
   }, "No predictions yet."), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))',
-      gap: 6
+      gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))',
+      gap: 8
     }
   }, withPicks.map(name => {
     const p = predictions[name] || {};
     const s = hasResult ? computeScore(p, result, home, away) : null;
+    const pH = parseInt(p.h),
+      pA = parseInt(p.a);
+    const outcomeColor = s ? s.exactScore ? '#9F1B1B' : s.correctResult ? 'var(--forest)' : 'rgba(0,0,0,.2)' : 'rgba(0,0,0,.08)';
     return /*#__PURE__*/React.createElement("div", {
       key: name,
+      style: {
+        padding: '10px 12px',
+        background: 'var(--cream2)',
+        borderRadius: 8,
+        border: `2px solid ${outcomeColor}`,
+        position: 'relative'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         alignItems: 'center',
         gap: 7,
-        padding: '6px 8px',
-        background: s?.exactScore ? 'rgba(159,27,27,.05)' : 'var(--cream2)',
-        borderRadius: 6,
-        border: s?.exactScore ? '1px solid rgba(159,27,27,.15)' : '1px solid transparent'
+        marginBottom: 6
       }
     }, /*#__PURE__*/React.createElement(Avatar, {
       name: name,
-      size: 22
+      size: 24
     }), /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 12,
-        fontWeight: 600,
+        fontWeight: 700,
         flex: 1,
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
       }
-    }, name), /*#__PURE__*/React.createElement("span", {
-      className: "mono",
-      style: {
-        fontSize: 12,
-        fontWeight: 700,
-        flexShrink: 0,
-        color: s?.exactScore ? 'var(--burgundy)' : 'var(--ink)'
-      }
-    }, p.h, "\u2013", p.a), s && /*#__PURE__*/React.createElement("span", {
-      className: "mono",
+    }, name), s && /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 10,
+        fontWeight: 800,
         color: 'var(--forest)',
-        flexShrink: 0
+        fontFamily: 'JetBrains Mono,monospace',
+        background: 'rgba(27,67,50,.1)',
+        padding: '2px 6px',
+        borderRadius: 4
       }
-    }, "+", s.total));
+    }, "+", s.total, "pt")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement(Flag, {
+      team: home,
+      size: 14
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "mono",
+      style: {
+        fontSize: 18,
+        fontWeight: 900,
+        color: 'var(--ink)',
+        letterSpacing: 2
+      }
+    }, pH, "\u2013", pA), /*#__PURE__*/React.createElement(Flag, {
+      team: away,
+      size: 14
+    })), s && /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'center',
+        fontSize: 9,
+        marginTop: 4,
+        color: s.exactScore ? 'var(--burgundy)' : s.correctResult ? 'var(--forest)' : 'var(--ink-soft)',
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '.05em'
+      }
+    }, s.exactScore ? '🎯 Exact score' : s.correctResult ? '✓ Correct result' : '✗ Wrong result'));
   })))));
 };
 
@@ -7987,6 +8559,17 @@ const App = () => {
   const [manualLock, setManualLock] = useState(() => !!lsGet('config')?.manualLock);
   const [reactions, setReactions] = useState({}); // username → emoji
   const [flyQueue, setFlyQueue] = useState([]);
+  const [easterEgg, setEasterEgg] = useState(false);
+  const eggTapsRef = useRef(0);
+  // Listen for egg event fired from child components
+  useEffect(() => {
+    const handler = () => {
+      setEasterEgg(true);
+      setTimeout(() => setEasterEgg(false), 3500);
+    };
+    window.addEventListener('qft-egg', handler);
+    return () => window.removeEventListener('qft-egg', handler);
+  }, []);
   const prevReactionsRef = useRef({});
   const prevGoalCountRef = useRef(0);
 
@@ -8700,7 +9283,45 @@ const App = () => {
     onSaveLiveGoals: saveLiveGoals,
     manualLock: manualLock,
     onToggleManualLock: toggleManualLock
-  })), flyQueue.length > 0 && ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+  })), easterEgg && ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      bottom: 32,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 10001,
+      background: 'linear-gradient(135deg,#1B4332,#154360)',
+      color: 'white',
+      borderRadius: 999,
+      padding: '12px 28px',
+      boxShadow: '0 6px 32px rgba(0,0,0,.4),0 0 0 2px rgba(255,215,0,.4)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      whiteSpace: 'nowrap',
+      animation: 'welcomeIn .5s cubic-bezier(.34,1.56,.64,1) forwards'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 20
+    }
+  }, "\u2728"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 800,
+      letterSpacing: '-.01em'
+    }
+  }, "Designed & built by Murtaza"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'rgba(255,255,255,.55)',
+      marginTop: 1
+    }
+  }, "React \xB7 Firebase \xB7 Vercel \xB7 WC 2026")), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 20
+    }
+  }, "\uD83C\uDFC6")), document.body), flyQueue.length > 0 && ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
       inset: 0,
@@ -8747,7 +9368,65 @@ const App = () => {
         merge: true
       }).catch(() => {});
     }
-  }))));
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      borderTop: '1px solid var(--line)',
+      marginTop: 8,
+      padding: '10px 24px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      gap: 8,
+      maxWidth: 1440,
+      margin: '0 auto'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap'
+    }
+  }, ['React', 'Firebase', 'Vercel'].map((t, i) => /*#__PURE__*/React.createElement("span", {
+    key: t,
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      fontSize: 10,
+      fontWeight: 600,
+      color: 'var(--ink-soft)',
+      background: 'var(--cream2)',
+      border: '1px solid var(--line)',
+      borderRadius: 20,
+      padding: '3px 9px',
+      letterSpacing: '.03em'
+    }
+  }, t === 'React' ? '⚛️' : t === 'Firebase' ? '🔥' : '▲', " ", t))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-soft)',
+      fontFamily: 'JetBrains Mono,monospace',
+      letterSpacing: '.04em'
+    }
+  }, "v1.0 \xB7 Jul 2026"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'var(--line)'
+    }
+  }, "|"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-soft)'
+    }
+  }, "QF Thursday \xB7 FIFA WC 2026"))));
 };
 ReactDOM.createRoot(document.getElementById('root')).render(/*#__PURE__*/React.createElement(App, null));
 </script>
