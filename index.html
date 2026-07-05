@@ -1544,7 +1544,8 @@ const RightSidebar = ({
   bonusAnswers = {},
   reactions = {},
   currentUser = null,
-  onReact = null
+  onReact = null,
+  teamPicks = {}
 }) => {
   const hasResult = result && result.h != null && result.h !== '';
   const exact = hasResult ? participants.filter(n => {
@@ -1957,28 +1958,40 @@ const RightSidebar = ({
           gap: 4,
           flex: 1
         }
-      }, users.slice(0, 8).map(u => /*#__PURE__*/React.createElement("div", {
-        key: u,
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 3,
-          background: 'white',
-          borderRadius: 12,
-          padding: '2px 7px 2px 2px',
-          border: '1px solid var(--line)'
-        }
-      }, /*#__PURE__*/React.createElement(Avatar, {
-        name: u,
-        size: 16
-      }), /*#__PURE__*/React.createElement("span", {
-        style: {
-          fontSize: 10,
-          fontWeight: 600,
-          color: 'var(--ink)',
-          whiteSpace: 'nowrap'
-        }
-      }, u))), users.length > 8 && /*#__PURE__*/React.createElement("span", {
+      }, users.slice(0, 8).map(u => {
+        const tp = teamPicks[u];
+        const tc = tp === 'France' ? '#003189' : tp === 'Morocco' ? '#C1272D' : null;
+        return /*#__PURE__*/React.createElement("div", {
+          key: u,
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 3,
+            background: tc ? tc + '18' : 'white',
+            borderRadius: 12,
+            padding: '2px 7px 2px 2px',
+            border: `1px solid ${tc || 'var(--line)'}`
+          }
+        }, /*#__PURE__*/React.createElement(Avatar, {
+          name: u,
+          size: 16
+        }), /*#__PURE__*/React.createElement("span", {
+          style: {
+            fontSize: 10,
+            fontWeight: 700,
+            color: tc || 'var(--ink)',
+            whiteSpace: 'nowrap'
+          }
+        }, u), tc && /*#__PURE__*/React.createElement("span", {
+          style: {
+            display: 'inline-flex',
+            marginLeft: 1
+          }
+        }, /*#__PURE__*/React.createElement(Flag, {
+          team: tp,
+          size: 10
+        })));
+      }), users.length > 8 && /*#__PURE__*/React.createElement("span", {
         style: {
           fontSize: 9,
           color: 'var(--ink-soft)',
@@ -2905,7 +2918,9 @@ const PredictView = ({
   onSaveBonusPick,
   bonusAnswers = {},
   liveGoals = {},
-  venue = ''
+  venue = '',
+  myTeamPick = null,
+  onTeamPick = null
 }) => {
   const [h, setH] = useState('');
   const [a, setA] = useState('');
@@ -3306,6 +3321,101 @@ const PredictView = ({
         fontFamily: 'JetBrains Mono,monospace'
       }
     }, "+", SCORE_BONUS_SCORER, " pts"))))))));
+  })(), (() => {
+    const TEAMS = [{
+      name: 'France',
+      color: '#003189',
+      bg: 'rgba(0,49,137,.08)'
+    }, {
+      name: 'Morocco',
+      color: '#C1272D',
+      bg: 'rgba(193,39,45,.08)'
+    }];
+    return /*#__PURE__*/React.createElement("div", {
+      className: "card",
+      style: {
+        marginBottom: 16,
+        padding: '12px 14px'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 10
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 13,
+        fontWeight: 700,
+        color: 'var(--ink)',
+        letterSpacing: '.03em'
+      }
+    }, "\uD83C\uDFF3\uFE0F Pick Your Team"), myTeamPick && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        color: 'var(--ink-soft)',
+        fontStyle: 'italic'
+      }
+    }, "rooting for ", /*#__PURE__*/React.createElement("strong", {
+      style: {
+        color: TEAMS.find(t => t.name === myTeamPick)?.color
+      }
+    }, myTeamPick))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 10
+      }
+    }, TEAMS.map(({
+      name,
+      color,
+      bg
+    }) => {
+      const isMe = myTeamPick === name;
+      return /*#__PURE__*/React.createElement("button", {
+        key: name,
+        onClick: () => onTeamPick && onTeamPick(isMe ? '' : name),
+        disabled: !currentUser || !onTeamPick,
+        style: {
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 6,
+          padding: '10px 8px',
+          borderRadius: 10,
+          border: `2px solid ${isMe ? color : 'var(--line)'}`,
+          background: isMe ? bg : 'var(--paper)',
+          cursor: currentUser ? 'pointer' : 'default',
+          transition: 'border .15s,background .15s,transform .15s',
+          transform: isMe ? 'scale(1.04)' : 'scale(1)'
+        }
+      }, /*#__PURE__*/React.createElement(Flag, {
+        team: name,
+        size: 36
+      }), /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 12,
+          fontWeight: 700,
+          color: isMe ? color : 'var(--ink)'
+        }
+      }, name), isMe && /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontSize: 9,
+          fontWeight: 700,
+          color: color,
+          letterSpacing: '.05em',
+          textTransform: 'uppercase'
+        }
+      }, "\u2713 My Team"));
+    })), !currentUser && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: 'var(--ink-soft)',
+        textAlign: 'center',
+        marginTop: 8
+      }
+    }, "Log in to pick your team"));
   })(), /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
@@ -8663,6 +8773,7 @@ const App = () => {
   const [welcomeToast, setWelcomeToast] = useState(null);
   const [manualLock, setManualLock] = useState(() => !!lsGet('config')?.manualLock);
   const [reactions, setReactions] = useState({}); // username → emoji
+  const [teamPicks, setTeamPicks] = useState({}); // username → 'France'|'Morocco'
   const [flyQueue, setFlyQueue] = useState([]);
   const [easterEgg, setEasterEgg] = useState(false);
   const eggTapsRef = useRef(0);
@@ -8676,6 +8787,10 @@ const App = () => {
     return () => window.removeEventListener('qft-egg', handler);
   }, []);
   const prevReactionsRef = useRef({});
+  const teamPicksRef = useRef({});
+  useEffect(() => {
+    teamPicksRef.current = teamPicks;
+  }, [teamPicks]);
   const prevGoalCountRef = useRef(0);
 
   // Load all data
@@ -8769,6 +8884,12 @@ const App = () => {
     sub('config', d => {
       if (d && typeof d === 'object') setManualLock(!!d.manualLock);
     });
+    // Team picks
+    subs.push(db.collection(NS).doc('team-picks').onSnapshot(snap => {
+      if (!snap.exists) return;
+      const d = snap.data() || {};
+      setTeamPicks(Object.fromEntries(Object.entries(d).filter(([k, v]) => k !== 'value' && typeof v === 'string')));
+    }, () => {}));
     // Reactions — raw field doc, each field is username:emoji string
     subs.push(db.collection(NS).doc('reactions').onSnapshot(snap => {
       if (!snap.exists) return;
@@ -8786,6 +8907,8 @@ const App = () => {
           const rot = (Math.random() - .5) * 40;
           const dx = (Math.random() - .5) * 20;
           const teamName = REACT_TEAM_FLY[emoji] || null;
+          const tp = teamPicksRef.current[user];
+          const userTeamColor = tp === 'France' ? '#003189' : tp === 'Morocco' ? '#C1272D' : null;
           return {
             id,
             emoji,
@@ -8793,7 +8916,8 @@ const App = () => {
             rot,
             dx,
             teamName,
-            user
+            user,
+            userTeamColor
           };
         });
         setFlyQueue(q => [...q, ...newItems]);
@@ -9352,7 +9476,16 @@ const App = () => {
     onSaveBonusPick: saveBonusPick,
     bonusAnswers: bonusAnswers,
     liveGoals: liveGoals,
-    venue: liveData?.venue || MATCH_VENUE
+    venue: liveData?.venue || MATCH_VENUE,
+    myTeamPick: teamPicks[currentUser] || null,
+    onTeamPick: team => {
+      if (!currentUser || !FB_ON) return;
+      db.collection(NS).doc('team-picks').set({
+        [currentUser]: team
+      }, {
+        merge: true
+      }).catch(() => {});
+    }
   }), view === 'leaderboard' && /*#__PURE__*/React.createElement(LeaderboardView, {
     participants: participants,
     predictions: predictions,
@@ -9448,7 +9581,8 @@ const App = () => {
     rot,
     dx,
     teamName,
-    user
+    user,
+    userTeamColor
   }) => /*#__PURE__*/React.createElement("div", {
     key: id,
     style: {
@@ -9501,14 +9635,15 @@ const App = () => {
     style: {
       fontSize: 9,
       fontWeight: 700,
-      color: 'white',
       whiteSpace: 'nowrap',
-      background: 'rgba(0,0,0,.55)',
+      color: userTeamColor || 'white',
+      background: userTeamColor ? 'rgba(255,255,255,.92)' : 'rgba(0,0,0,.55)',
       borderRadius: 8,
       padding: '1px 5px',
       maxWidth: 72,
       overflow: 'hidden',
-      textOverflow: 'ellipsis'
+      textOverflow: 'ellipsis',
+      border: userTeamColor ? `1px solid ${userTeamColor}` : ' none'
     }
   }, user)))), document.body), /*#__PURE__*/React.createElement("div", {
     className: "sidebar-right"
@@ -9522,6 +9657,7 @@ const App = () => {
     bonusAnswers: bonusAnswers,
     reactions: reactions,
     currentUser: currentUser,
+    teamPicks: teamPicks,
     onReact: emoji => {
       if (!currentUser || !FB_ON) return;
       db.collection(NS).doc('reactions').set({
