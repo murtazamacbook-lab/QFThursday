@@ -668,7 +668,28 @@ const SQUAD = {
   'Haiti': ['Josué Duverger', 'Herby Sainvil', 'Mechack Jérôme', 'Steeven Saba', 'Jems Geffrard', 'Kervens Belfort', 'Derrick Etienne', 'Wilde-Donald Guerrier', 'Frantzdy Pierrot', 'Carnejy Antoine', 'Duckens Nazon', 'Dario Monor', 'James Léandre', 'Mikaël Cantave', 'Nathael Judicaël', 'Gelson Dabel']
 };
 
-// ── PLAYER SEARCH INPUT ────────────────────────────────────────────
+// Safe participants write — refuses to shrink list by more than 2 or write empty array
+const safeWriteParticipants = async newParts => {
+  if (!Array.isArray(newParts) || newParts.length === 0) {
+    console.warn('[qft] safeWriteParticipants: blocked empty write');
+    return;
+  }
+  if (FB_ON) {
+    try {
+      const snap = await fbTO(db.collection(NS).doc('participants').get()).catch(() => null);
+      const current = snap?.exists ? JSON.parse(snap.data().value || '[]') : [];
+      if (Array.isArray(current) && current.length > 2 && newParts.length < current.length - 2) {
+        console.warn(`[qft] safeWriteParticipants: blocked shrink ${current.length}→${newParts.length}`);
+        return;
+      }
+    } catch {}
+  }
+  lsSet('participants', newParts);
+  if (!FB_ON) return;
+  return fbTO(db.collection(NS).doc('participants').set({
+    value: JSON.stringify(newParts)
+  })).catch(e => console.warn('[qft] participants write failed:', e));
+};
 const PlayerSearchInput = ({
   value,
   onChange,
@@ -6537,7 +6558,7 @@ const BackupPanel = ({
       const currentParts = partsSnap.exists ? JSON.parse(partsSnap.data().value || '[]') : [];
       const allFound = [...new Set([...predNames, ...bpNames])].filter(n => n.length > 0);
       const merged = [...new Set([...currentParts, ...allFound])];
-      await storage.set('participants', merged);
+      await safeWriteParticipants(merged);
       onRestoreParticipants && onRestoreParticipants(merged);
       const added = merged.filter(n => !currentParts.includes(n));
       const log = `✅ ${merged.length} total. Added: ${added.length > 0 ? added.join(', ') : 'none'}`;
@@ -6699,7 +6720,7 @@ const BackupPanel = ({
     style: btnStyle('var(--amber)', busy === 'restore'),
     disabled: busy === 'restore',
     onClick: () => doRestore('Participants & PINs', async bk => {
-      await Promise.all([storage.set('participants', bk.participants || []), storage.set('pins', bk.pins || {})]);
+      await Promise.all([safeWriteParticipants(bk.participants || []), storage.set('pins', bk.pins || {})]);
       onRestoreParticipants && onRestoreParticipants(bk.participants || []);
       onRestorePins && onRestorePins(bk.pins || {});
       setMsg(`✅ Participants restored — ${(bk.participants || []).length} users.`);
@@ -6737,7 +6758,7 @@ const BackupPanel = ({
     onClick: () => doRestore('EVERYTHING', async bk => {
       const preds = bk.bonusPicks || {};
       const bp = bk.bonusPicks || {};
-      await Promise.all([storage.set('participants', bk.participants || []), storage.set('pins', bk.pins || {}), ...Object.entries(bk.predictions || {}).map(([u, p]) => storage.setUserField('predictions', u, p)), ...Object.entries(bk.bonusPicks || {}).map(([u, p]) => storage.setUserField('bonus-picks', u, p))]);
+      await Promise.all([safeWriteParticipants(bk.participants || []), storage.set('pins', bk.pins || {}), ...Object.entries(bk.predictions || {}).map(([u, p]) => storage.setUserField('predictions', u, p)), ...Object.entries(bk.bonusPicks || {}).map(([u, p]) => storage.setUserField('bonus-picks', u, p))]);
       onRestoreParticipants && onRestoreParticipants(bk.participants || []);
       onRestorePins && onRestorePins(bk.pins || {});
       onRestorePredictions && onRestorePredictions(bk.predictions || {});
@@ -9184,7 +9205,7 @@ const App = () => {
     Promise.all([storage.get('participants'), storage.get('pins'), storage.getUserMap('predictions'), storage.get('result'), storage.getUserMap('bonus-picks'), storage.get('bonus-answers'), storage.get('teams'), storage.get('manual-live'), storage.get('config')]).then(([parts, pins, preds, res, bPicks, bAns, teams, ml, cfg]) => {
       clearTimeout(t1);
       clearTimeout(t2);
-      if (Array.isArray(parts)) setParticipants(parts);
+      if (Array.isArray(parts) && parts.length > 0) setParticipants(parts);
       if (pins && typeof pins === 'object') setUserPins(pins);
       if (preds && typeof preds === 'object') setPredictions(preds);
       if (res && typeof res === 'object') setResult(res);
@@ -9546,7 +9567,7 @@ const App = () => {
       setParticipants(np);
       setUserPins(nPins);
       // Await both writes so other devices see this user immediately
-      await Promise.all([storage.set('participants', np), storage.set('pins', nPins)]);
+      await Promise.all([safeWriteParticipants(np), storage.set('pins', nPins)]);
       setCurrentUser(name);
       setWelcomeToast(name);
       try {
@@ -9641,7 +9662,7 @@ const App = () => {
     lsSet('predictions', nPreds);
     lsSet('bonus-picks', nBp);
     if (FB_ON) {
-      await Promise.all([storage.set('participants', np), storage.set('pins', nPins),
+      await Promise.all([safeWriteParticipants(np), storage.set('pins', nPins),
       // Delete this user's individual fields from per-user docs
       db.collection(NS).doc('predictions').update({
         [name]: firebase.firestore.FieldValue.delete()
