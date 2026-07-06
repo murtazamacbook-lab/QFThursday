@@ -9180,6 +9180,7 @@ const App = () => {
 
   // Fetch live FIFA rankings from Vercel API route (server-side proxy, no CORS)
   useEffect(() => {
+    if (!location.protocol.startsWith('http')) return; // skip when opening as local file
     fetch('/api/rankings').then(r => r.json()).then(({
       rankings
     }) => {
