@@ -1,12 +1,5 @@
 {
   "name": "qf-thursday",
   "version": "1.0.0",
-  "description": "QF Thursday — July 9 Quarter-Final Prediction Pool",
-  "scripts": {
-    "build": "node build.js"
-  },
-  "devDependencies": {
-    "@babel/standalone": "^7.29.7",
-    "flag-icons": "^7.5.0"
-  }
+  "description": "QF Thursday — July 9 Quarter-Final Prediction Pool"
 }
