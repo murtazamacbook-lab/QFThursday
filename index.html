@@ -11028,10 +11028,51 @@ const App = () => {
       animation: 'loadBar 4s ease-in-out infinite'
     }
   })));
-  if (!currentUser) return /*#__PURE__*/React.createElement(LoginScreen, {
-    onLogin: handleLogin,
-    participants: participants
-  });
+  if (!currentUser) {
+    // TV mode with no session — show live data read-only + hidden admin login corner
+    if (tvMode) return /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: '#0a0e1a',
+        minHeight: '100vh'
+      }
+    }, /*#__PURE__*/React.createElement("style", null, CSS), /*#__PURE__*/React.createElement(LiveDataView, {
+      reactions: reactions,
+      teamPicks: teamPicks,
+      participants: participants,
+      liveGoals: liveGoals,
+      result: result,
+      home: home,
+      away: away,
+      currentUser: null,
+      predictions: predictions,
+      tvMode: true,
+      onlineUsers: onlineUsers
+    }), /*#__PURE__*/React.createElement("div", {
+      onDoubleClick: () => {
+        const n = window.prompt('Admin login:');
+        if (n) {
+          try {
+            sessionStorage.setItem('qft_cu', n);
+            localStorage.setItem('qft_cu', n);
+          } catch {}
+          setCurrentUser(n);
+        }
+      },
+      style: {
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        width: 80,
+        height: 80,
+        zIndex: 9999,
+        cursor: 'default'
+      }
+    }));
+    return /*#__PURE__*/React.createElement(LoginScreen, {
+      onLogin: handleLogin,
+      participants: participants
+    });
+  }
   const ADMIN_NAMES = ['admin', 'murtaza', 'ayo', 'parth thakkar'];
   const isAdmin = ADMIN_NAMES.includes(currentUser.toLowerCase());
   const tabs = [{
@@ -11297,27 +11338,7 @@ const App = () => {
       boxShadow: '0 4px 20px rgba(0,0,0,.5)',
       transition: 'background .2s'
     }
-  }, tvScreen === 'leaderboard' ? '📺 Back to Live Data' : '🏆 Show Leaderboard')), tvMode && !currentUser && /*#__PURE__*/React.createElement("div", {
-    onDoubleClick: () => {
-      const n = window.prompt('Admin name:');
-      if (n) {
-        try {
-          sessionStorage.setItem('qft_cu', n);
-          localStorage.setItem('qft_cu', n);
-        } catch {}
-        setCurrentUser(n);
-      }
-    },
-    style: {
-      position: 'fixed',
-      bottom: 0,
-      left: 0,
-      width: 60,
-      height: 60,
-      zIndex: 9999,
-      cursor: 'default'
-    }
-  }), tvMode && view === 'livedata' && tvScreen === 'leaderboard' && /*#__PURE__*/React.createElement("div", {
+  }, tvScreen === 'leaderboard' ? '📺 Back to Live Data' : '🏆 Show Leaderboard')), tvMode && view === 'livedata' && tvScreen === 'leaderboard' && /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
       inset: 0,
