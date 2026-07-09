@@ -6333,7 +6333,8 @@ const LiveDataView = ({
   currentUser = null,
   onReact = null,
   tvMode = false,
-  onlineUsers = {}
+  onlineUsers = {},
+  predictions = {}
 }) => {
   const FRANCE_COL = '#003189';
   const MOROCCO_COL = '#C1272D';
@@ -6419,9 +6420,21 @@ const LiveDataView = ({
       return ts && now - ts < 3 * 60 * 1000;
     }).map(([n]) => n));
   }, [onlineUsers, tick]);
-  const franceFans = participants.filter(p => teamPicks[p] === 'France').sort((a, b) => (onlineSet.has(b) ? 1 : 0) - (onlineSet.has(a) ? 1 : 0));
-  const moroccoFans = participants.filter(p => teamPicks[p] === 'Morocco').sort((a, b) => (onlineSet.has(b) ? 1 : 0) - (onlineSet.has(a) ? 1 : 0));
-  const neutralFans = participants.filter(p => !teamPicks[p]).sort((a, b) => (onlineSet.has(b) ? 1 : 0) - (onlineSet.has(a) ? 1 : 0));
+
+  // Derive effective team from prediction for users with no explicit team pick
+  const getEffectiveTeam = name => {
+    if (teamPicks[name]) return teamPicks[name];
+    const pred = predictions[name];
+    if (!pred) return null;
+    const ph = parseInt(pred.h) || 0;
+    const pa = parseInt(pred.a) || 0;
+    if (ph > pa) return home;
+    if (pa > ph) return away;
+    return null;
+  };
+  const franceFans = participants.filter(p => getEffectiveTeam(p) === home).sort((a, b) => (onlineSet.has(b) ? 1 : 0) - (onlineSet.has(a) ? 1 : 0));
+  const moroccoFans = participants.filter(p => getEffectiveTeam(p) === away).sort((a, b) => (onlineSet.has(b) ? 1 : 0) - (onlineSet.has(a) ? 1 : 0));
+  const neutralFans = participants.filter(p => !getEffectiveTeam(p)).sort((a, b) => (onlineSet.has(b) ? 1 : 0) - (onlineSet.has(a) ? 1 : 0));
   const hScore = result?.h != null && result.h !== '' ? result.h : (liveGoals?.goals || []).filter(g => g.isHome).length;
   const aScore = result?.a != null && result.a !== '' ? result.a : (liveGoals?.goals || []).filter(g => !g.isHome).length;
   const hasLive = liveGoals?.goals && liveGoals.goals.length > 0;
@@ -6449,7 +6462,8 @@ const LiveDataView = ({
     name,
     col,
     size = 36,
-    isOnline = false
+    isOnline = false,
+    autoPick = false
   }) => {
     const reaction = reactions[name];
     const [prevReact, setPrevReact] = React.useState(reaction);
@@ -6524,14 +6538,21 @@ const LiveDataView = ({
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
       }
-    }, name));
+    }, name), autoPick && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 8,
+        color: 'rgba(255,255,255,.4)',
+        fontStyle: 'italic'
+      }
+    }, "pred."));
   };
   const TeamZone = ({
     team,
     col,
     fans,
     squad,
-    isHome
+    isHome,
+    tvMode: tv = false
   }) => {
     const goals = (liveGoals?.goals || []).filter(g => isHome ? g.isHome : !g.isHome);
     const score = isHome ? hScore : aScore;
@@ -6544,7 +6565,7 @@ const LiveDataView = ({
         display: 'flex',
         flexDirection: 'column',
         background: `linear-gradient(160deg,${col}ee 0%,${col}99 60%,${col}44 100%)`,
-        padding: '20px 16px',
+        padding: tv ? '16px 20px' : '20px 16px',
         position: 'relative',
         overflow: 'hidden'
       }
@@ -6575,14 +6596,14 @@ const LiveDataView = ({
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        marginBottom: 16
+        marginBottom: tv ? 12 : 16
       }
     }, /*#__PURE__*/React.createElement(Flag, {
       team: team,
-      size: 52
+      size: tv ? 64 : 52
     }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 22,
+        fontSize: tv ? 28 : 22,
         fontWeight: 900,
         color: 'white',
         letterSpacing: '-.02em',
@@ -6590,14 +6611,14 @@ const LiveDataView = ({
       }
     }, team), /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 11,
+        fontSize: tv ? 13 : 11,
         color: 'rgba(255,255,255,.7)',
         marginTop: 2
       }
     }, fans.length, " supporter", fans.length !== 1 ? 's' : '', supportCount > 0 ? ` · ${supportCount} 🏳️ reacts` : '')), /*#__PURE__*/React.createElement("div", {
       style: {
         marginLeft: 'auto',
-        fontSize: 72,
+        fontSize: tv ? 96 : 72,
         fontWeight: 900,
         color: 'white',
         lineHeight: 1,
@@ -6606,7 +6627,7 @@ const LiveDataView = ({
       }
     }, score)), goals.length > 0 && /*#__PURE__*/React.createElement("div", {
       style: {
-        marginBottom: 14,
+        marginBottom: tv ? 10 : 14,
         display: 'flex',
         flexWrap: 'wrap',
         gap: 6
@@ -6620,48 +6641,77 @@ const LiveDataView = ({
         background: 'rgba(255,255,255,.15)',
         border: '1px solid rgba(255,255,255,.25)',
         borderRadius: 20,
-        padding: '4px 10px'
+        padding: tv ? '6px 14px' : '4px 10px'
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 13
+        fontSize: tv ? 18 : 13
       }
     }, "\u26BD"), /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 12,
+        fontSize: tv ? 16 : 12,
         fontWeight: 700,
         color: 'white'
       }
     }, g.scorer || 'Goal'), /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 10,
+        fontSize: tv ? 13 : 10,
         color: 'rgba(255,255,255,.7)'
       }
     }, g.time)))), fans.length > 0 && /*#__PURE__*/React.createElement("div", {
       style: {
-        marginBottom: 16
+        marginBottom: tv ? 10 : 16
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 10,
+        fontSize: tv ? 12 : 10,
         fontWeight: 700,
         letterSpacing: '.1em',
         color: 'rgba(255,255,255,.6)',
         textTransform: 'uppercase',
-        marginBottom: 8
+        marginBottom: tv ? 10 : 8
       }
     }, "\uD83C\uDFF3\uFE0F Supporters"), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         flexWrap: 'wrap',
-        gap: 8
+        gap: tv ? 10 : 8
       }
     }, fans.map(n => /*#__PURE__*/React.createElement(FanCard, {
       key: n,
       name: n,
       col: col,
+      size: tv ? 44 : 36,
+      isOnline: onlineSet.has(n),
+      autoPick: !!predictions[n] && !teamPicks[n]
+    })))), neutralFans.length > 0 && (tv || isHome) && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginBottom: tv ? 10 : 0,
+        marginTop: tv ? 0 : 0,
+        paddingTop: tv ? 0 : 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: tv ? 12 : 10,
+        fontWeight: 700,
+        letterSpacing: '.1em',
+        color: 'rgba(255,255,255,.5)',
+        textTransform: 'uppercase',
+        marginBottom: tv ? 10 : 6
+      }
+    }, "\u2696\uFE0F Undecided"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: tv ? 10 : 6
+      }
+    }, neutralFans.map(n => /*#__PURE__*/React.createElement(FanCard, {
+      key: n,
+      name: n,
+      col: "#888",
+      size: tv ? 36 : 28,
       isOnline: onlineSet.has(n)
-    })))), /*#__PURE__*/React.createElement("div", {
+    })))), !tv && /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1
       }
@@ -6709,34 +6759,7 @@ const LiveDataView = ({
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
       }
-    }, p))))), neutralFans.length > 0 && isHome && /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginTop: 14,
-        paddingTop: 12,
-        borderTop: '1px solid rgba(255,255,255,.15)'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: '.1em',
-        color: 'rgba(255,255,255,.5)',
-        textTransform: 'uppercase',
-        marginBottom: 6
-      }
-    }, "\u2696\uFE0F Undecided"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 6
-      }
-    }, neutralFans.map(n => /*#__PURE__*/React.createElement(FanCard, {
-      key: n,
-      name: n,
-      col: "#888",
-      size: 28,
-      isOnline: onlineSet.has(n)
-    })))));
+    }, p))))));
   };
 
   // ── MOBILE VIBE FEED ───────────────────────────────────────────
@@ -7217,9 +7240,11 @@ const LiveDataView = ({
   const DesktopView = () => /*#__PURE__*/React.createElement("div", {
     className: "livedata-view",
     style: {
-      minHeight: 'calc(100vh - 148px)',
+      height: tvMode ? '100vh' : 'auto',
+      minHeight: tvMode ? undefined : 'calc(100vh - 148px)',
       background: '#0a0e1a',
-      position: 'relative'
+      position: 'relative',
+      overflow: tvMode ? 'hidden' : 'visible'
     }
   }, goalFlash && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -7416,14 +7441,16 @@ const LiveDataView = ({
   }, liveGoals.source === 'espn' ? /*#__PURE__*/React.createElement("span", null, "\uD83E\uDD16 ESPN") : /*#__PURE__*/React.createElement("span", null, "\u270F\uFE0F Manual"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
-      minHeight: tvMode ? 'calc(100vh - 160px)' : 'calc(100vh - 210px)'
+      height: tvMode ? 'calc(100vh - 96px)' : undefined,
+      minHeight: tvMode ? undefined : 'calc(100vh - 210px)'
     }
   }, /*#__PURE__*/React.createElement(TeamZone, {
     team: home,
     col: FRANCE_COL,
     fans: franceFans,
     squad: SQUAD[home] || [],
-    isHome: true
+    isHome: true,
+    tvMode: tvMode
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       width: 2,
@@ -7435,7 +7462,8 @@ const LiveDataView = ({
     col: MOROCCO_COL,
     fans: moroccoFans,
     squad: SQUAD[away] || [],
-    isHome: false
+    isHome: false,
+    tvMode: tvMode
   })));
   return isMobile ? /*#__PURE__*/React.createElement(MobileView, null) : /*#__PURE__*/React.createElement(DesktopView, null);
 };
@@ -11185,6 +11213,7 @@ const App = () => {
     home: home,
     away: away,
     currentUser: currentUser,
+    predictions: predictions,
     onReact: emoji => {
       if (!currentUser || !FB_ON) return;
       db.collection(NS).doc('reactions').set({
