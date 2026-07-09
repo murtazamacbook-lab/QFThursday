@@ -504,9 +504,11 @@ const CSS = `
   @keyframes reactPop{0%{transform:scale(1)}40%{transform:scale(1.8) rotate(20deg)}70%{transform:scale(0.85) rotate(-5deg)}100%{transform:scale(1) rotate(0deg)}}
   /* TV mode — ?tv=1 hides chrome, scales fonts up for 1080p/4K projection */
   .tv-mode .qft-header{display:none!important;}
-  .tv-mode .page-grid{padding:0!important;}
+  .tv-mode .page-grid{padding:0!important;display:block!important;max-width:100%!important;}
+  .tv-mode .page-grid>*:not(main){display:none!important;}
+  .tv-mode .page-grid>main{max-width:100%!important;width:100%!important;min-height:unset!important;}
   .tv-mode main>*:not(.livedata-view){display:none!important;}
-  body.tv-mode{font-size:18px;}
+  body.tv-mode{font-size:18px;overflow:hidden;}
   .fadein{animation:fadein .25s ease;}
   .scrollbar::-webkit-scrollbar{width:4px;height:4px;}.scrollbar::-webkit-scrollbar-track{background:transparent;}.scrollbar::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px;}
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}
