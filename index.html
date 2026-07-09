@@ -7430,7 +7430,6 @@ const LiveDataView = ({
     }
   }, "LIVE")), liveGoals?.source && /*#__PURE__*/React.createElement("div", {
     style: {
-      marginLeft: 'auto',
       fontSize: tvMode ? 13 : 10,
       color: 'rgba(255,255,255,.45)',
       display: 'flex',
@@ -7440,7 +7439,31 @@ const LiveDataView = ({
       borderRadius: 12,
       padding: '3px 8px'
     }
-  }, liveGoals.source === 'espn' ? /*#__PURE__*/React.createElement("span", null, "\uD83E\uDD16 ESPN") : /*#__PURE__*/React.createElement("span", null, "\u270F\uFE0F Manual"))), /*#__PURE__*/React.createElement("div", {
+  }, liveGoals.source === 'espn' ? /*#__PURE__*/React.createElement("span", null, "\uD83E\uDD16 ESPN") : /*#__PURE__*/React.createElement("span", null, "\u270F\uFE0F Manual")), tvMode && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginLeft: 'auto',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-end',
+      gap: 3
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15,
+      fontWeight: 700,
+      color: 'rgba(255,255,255,.9)',
+      letterSpacing: '.01em'
+    }
+  }, "qf-thursday.vercel.app"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'rgba(255,255,255,.5)'
+    }
+  }, "\uD83D\uDC46 Visit & click ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: 'rgba(255,255,255,.8)'
+    }
+  }, "Live Data"), " to share your reaction"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       height: tvMode ? 'calc(100vh - 96px)' : undefined,
