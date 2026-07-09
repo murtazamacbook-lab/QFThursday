@@ -10422,6 +10422,7 @@ const App = () => {
   // TV mode: ?tv=1 hides header/tabs, goes straight to Live Data fullscreen
   const tvMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tv') === '1';
   const [view, setView] = useState(tvMode ? 'livedata' : 'predict');
+  const [tvScreen, setTvScreen] = useState('livedata'); // admin can toggle: 'livedata' | 'leaderboard'
   const [ready, setReady] = useState(false);
   const [loadMsg, setLoadMsg] = useState('Connecting…');
   const [onlineUsers, setOnlineUsers] = useState({});
@@ -11266,7 +11267,53 @@ const App = () => {
     },
     tvMode: tvMode,
     onlineUsers: onlineUsers
-  }), view === 'admin' && isAdmin && /*#__PURE__*/React.createElement(AdminView, {
+  }), tvMode && view === 'livedata' && isAdmin && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      bottom: 24,
+      right: 24,
+      zIndex: 9999,
+      display: 'flex',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => setTvScreen(s => s === 'livedata' ? 'leaderboard' : 'livedata'),
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '10px 18px',
+      borderRadius: 12,
+      border: '2px solid rgba(255,255,255,.3)',
+      background: tvScreen === 'leaderboard' ? 'rgba(255,215,0,.2)' : 'rgba(255,255,255,.1)',
+      color: 'white',
+      fontSize: 14,
+      fontWeight: 700,
+      cursor: 'pointer',
+      backdropFilter: 'blur(8px)',
+      boxShadow: '0 4px 20px rgba(0,0,0,.5)',
+      transition: 'background .2s'
+    }
+  }, tvScreen === 'leaderboard' ? '📺 Back to Live Data' : '🏆 Show Leaderboard')), tvMode && view === 'livedata' && tvScreen === 'leaderboard' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      inset: 0,
+      zIndex: 9000,
+      background: '#f8f5ef',
+      overflowY: 'auto',
+      padding: '24px 40px'
+    }
+  }, /*#__PURE__*/React.createElement(LeaderboardView, {
+    participants: participants,
+    predictions: predictions,
+    result: result,
+    bonusPicks: bonusPicks,
+    bonusAnswers: bonusAnswers,
+    currentUser: currentUser,
+    home: home,
+    away: away,
+    liveGoals: liveGoals
+  })), view === 'admin' && isAdmin && /*#__PURE__*/React.createElement(AdminView, {
     participants: participants,
     predictions: predictions,
     result: result,
