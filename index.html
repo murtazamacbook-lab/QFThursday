@@ -10607,10 +10607,9 @@ const App = () => {
     return () => clearInterval(t);
   }, [currentUser]);
 
-  // Online-users listener — only loads for admins to avoid unnecessary reads
+  // Online-users listener — all logged-in users can see presence for Live Data
   useEffect(() => {
-    const isAdm = currentUser && (currentUser.toLowerCase() === 'murtaza' || currentUser.toLowerCase() === 'admin');
-    if (!FB_ON || !isAdm) return;
+    if (!FB_ON || !currentUser) return;
     const unsub = db.collection(NS).doc('online-users').onSnapshot({
       includeMetadataChanges: false
     }, snap => {
