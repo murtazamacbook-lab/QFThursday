@@ -10502,7 +10502,7 @@ const App = () => {
   // Restore session on reload — user stays logged in after page refresh
   useEffect(() => {
     try {
-      const s = sessionStorage.getItem('qft_cu');
+      const s = sessionStorage.getItem('qft_cu') || localStorage.getItem('qft_cu');
       if (s) setCurrentUser(s);
     } catch {}
   }, []);
@@ -10820,6 +10820,7 @@ const App = () => {
         setWelcomeToast(name);
         try {
           sessionStorage.setItem('qft_cu', name);
+          localStorage.setItem('qft_cu', name);
         } catch {}
         return;
       }
@@ -10837,6 +10838,7 @@ const App = () => {
         setWelcomeToast(name);
         try {
           sessionStorage.setItem('qft_cu', name);
+          localStorage.setItem('qft_cu', name);
         } catch {}
       } else {
         alert('Incorrect PIN. Please try again.');
@@ -10857,6 +10859,7 @@ const App = () => {
       setWelcomeToast(name);
       try {
         sessionStorage.setItem('qft_cu', name);
+        localStorage.setItem('qft_cu', name);
       } catch {}
     }
   };
@@ -11294,7 +11297,27 @@ const App = () => {
       boxShadow: '0 4px 20px rgba(0,0,0,.5)',
       transition: 'background .2s'
     }
-  }, tvScreen === 'leaderboard' ? '📺 Back to Live Data' : '🏆 Show Leaderboard')), tvMode && view === 'livedata' && tvScreen === 'leaderboard' && /*#__PURE__*/React.createElement("div", {
+  }, tvScreen === 'leaderboard' ? '📺 Back to Live Data' : '🏆 Show Leaderboard')), tvMode && !currentUser && /*#__PURE__*/React.createElement("div", {
+    onDoubleClick: () => {
+      const n = window.prompt('Admin name:');
+      if (n) {
+        try {
+          sessionStorage.setItem('qft_cu', n);
+          localStorage.setItem('qft_cu', n);
+        } catch {}
+        setCurrentUser(n);
+      }
+    },
+    style: {
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      width: 60,
+      height: 60,
+      zIndex: 9999,
+      cursor: 'default'
+    }
+  }), tvMode && view === 'livedata' && tvScreen === 'leaderboard' && /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
       inset: 0,
