@@ -6332,7 +6332,8 @@ const LiveDataView = ({
   away = 'Morocco',
   currentUser = null,
   onReact = null,
-  tvMode = false
+  tvMode = false,
+  onlineUsers = {}
 }) => {
   const FRANCE_COL = '#003189';
   const MOROCCO_COL = '#C1272D';
@@ -6409,9 +6410,18 @@ const LiveDataView = ({
     }, key);
   };
   const myReaction = reactions[currentUser] || null;
-  const franceFans = participants.filter(p => teamPicks[p] === 'France');
-  const moroccoFans = participants.filter(p => teamPicks[p] === 'Morocco');
-  const neutralFans = participants.filter(p => !teamPicks[p]);
+
+  // Compute online set — users seen in last 3 min
+  const onlineSet = React.useMemo(() => {
+    const now = Date.now();
+    return new Set(Object.entries(onlineUsers).filter(([, v]) => {
+      const ts = typeof v === 'object' ? v.ts : v;
+      return ts && now - ts < 3 * 60 * 1000;
+    }).map(([n]) => n));
+  }, [onlineUsers, tick]);
+  const franceFans = participants.filter(p => teamPicks[p] === 'France').sort((a, b) => (onlineSet.has(b) ? 1 : 0) - (onlineSet.has(a) ? 1 : 0));
+  const moroccoFans = participants.filter(p => teamPicks[p] === 'Morocco').sort((a, b) => (onlineSet.has(b) ? 1 : 0) - (onlineSet.has(a) ? 1 : 0));
+  const neutralFans = participants.filter(p => !teamPicks[p]).sort((a, b) => (onlineSet.has(b) ? 1 : 0) - (onlineSet.has(a) ? 1 : 0));
   const hScore = result?.h != null && result.h !== '' ? result.h : (liveGoals?.goals || []).filter(g => g.isHome).length;
   const aScore = result?.a != null && result.a !== '' ? result.a : (liveGoals?.goals || []).filter(g => !g.isHome).length;
   const hasLive = liveGoals?.goals && liveGoals.goals.length > 0;
@@ -6438,16 +6448,20 @@ const LiveDataView = ({
   const FanCard = ({
     name,
     col,
-    size = 36
+    size = 36,
+    isOnline = false
   }) => {
     const reaction = reactions[name];
     const [prevReact, setPrevReact] = React.useState(reaction);
     const [reactAnim, setReactAnim] = React.useState('');
+    const [jumpAnim, setJumpAnim] = React.useState('');
     React.useEffect(() => {
       if (reaction !== prevReact) {
         setReactAnim('reactPop .5s ease');
+        setJumpAnim('avatarJump .55s cubic-bezier(.34,1.56,.64,1)');
         setPrevReact(reaction);
         setTimeout(() => setReactAnim(''), 550);
+        setTimeout(() => setJumpAnim(''), 600);
       }
     }, [reaction]);
     return /*#__PURE__*/React.createElement("div", {
@@ -6458,17 +6472,32 @@ const LiveDataView = ({
         gap: 4,
         padding: '8px 6px',
         borderRadius: 12,
-        background: 'rgba(255,255,255,.1)',
-        border: '1px solid rgba(255,255,255,.15)',
+        background: isOnline ? 'rgba(255,255,255,.13)' : 'rgba(255,255,255,.05)',
+        border: isOnline ? '1px solid rgba(80,220,120,.35)' : '1px solid rgba(255,255,255,.08)',
         minWidth: 64,
-        flex: '0 0 auto'
+        flex: '0 0 auto',
+        opacity: isOnline ? 1 : .5,
+        transition: 'opacity .4s'
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         position: 'relative',
-        animation: getAvatarAnim(name)
+        animation: jumpAnim || (isOnline ? getAvatarAnim(name) : 'none')
       }
-    }, /*#__PURE__*/React.createElement(Avatar, {
+    }, isOnline && /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        background: '#2ecc71',
+        border: '2px solid #0a0e1a',
+        zIndex: 2,
+        boxShadow: '0 0 6px #2ecc71'
+      }
+    }), /*#__PURE__*/React.createElement(Avatar, {
       name: name,
       size: size
     }), reaction && /*#__PURE__*/React.createElement("div", {
@@ -6488,7 +6517,7 @@ const LiveDataView = ({
       style: {
         fontSize: 10,
         fontWeight: 700,
-        color: 'white',
+        color: isOnline ? 'white' : 'rgba(255,255,255,.45)',
         textAlign: 'center',
         maxWidth: 64,
         overflow: 'hidden',
@@ -6630,7 +6659,8 @@ const LiveDataView = ({
     }, fans.map(n => /*#__PURE__*/React.createElement(FanCard, {
       key: n,
       name: n,
-      col: col
+      col: col,
+      isOnline: onlineSet.has(n)
     })))), /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1
@@ -6704,7 +6734,8 @@ const LiveDataView = ({
       key: n,
       name: n,
       col: "#888",
-      size: 28
+      size: 28,
+      isOnline: onlineSet.has(n)
     })))));
   };
 
@@ -7063,24 +7094,41 @@ const LiveDataView = ({
     }
   }, fans.map(n => {
     const r = reactions[n];
+    const live = onlineSet.has(n);
     return /*#__PURE__*/React.createElement("div", {
       key: n,
       style: {
         display: 'flex',
         alignItems: 'center',
         gap: 3,
-        background: 'rgba(255,255,255,.1)',
+        background: live ? 'rgba(255,255,255,.15)' : 'rgba(255,255,255,.07)',
         borderRadius: 20,
-        padding: '2px 6px 2px 2px'
+        padding: '2px 6px 2px 2px',
+        border: live ? '1px solid rgba(80,220,120,.3)' : '1px solid transparent'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'relative'
       }
     }, /*#__PURE__*/React.createElement(Avatar, {
       name: n,
       size: 18
-    }), /*#__PURE__*/React.createElement("span", {
+    }), live && /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        top: -1,
+        right: -1,
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        background: '#2ecc71',
+        border: '1px solid #0a0e1a'
+      }
+    })), /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 9,
         fontWeight: 700,
-        color: 'white'
+        color: live ? 'white' : 'rgba(255,255,255,.55)'
       }
     }, n.split(' ')[0]), r && /*#__PURE__*/React.createElement("span", {
       style: {
@@ -7353,7 +7401,7 @@ const LiveDataView = ({
       fontWeight: 700,
       color: '#ff7777'
     }
-  }, "LIVE")), /*#__PURE__*/React.createElement("div", {
+  }, "LIVE")), liveGoals?.source && /*#__PURE__*/React.createElement("div", {
     style: {
       marginLeft: 'auto',
       fontSize: tvMode ? 13 : 10,
@@ -7365,7 +7413,7 @@ const LiveDataView = ({
       borderRadius: 12,
       padding: '3px 8px'
     }
-  }, liveGoals?.source === 'espn' ? /*#__PURE__*/React.createElement("span", null, "\uD83E\uDD16 ESPN") : /*#__PURE__*/React.createElement("span", null, "\u270F\uFE0F Manual"))), /*#__PURE__*/React.createElement("div", {
+  }, liveGoals.source === 'espn' ? /*#__PURE__*/React.createElement("span", null, "\uD83E\uDD16 ESPN") : /*#__PURE__*/React.createElement("span", null, "\u270F\uFE0F Manual"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       minHeight: tvMode ? 'calc(100vh - 160px)' : 'calc(100vh - 210px)'
@@ -11146,7 +11194,8 @@ const App = () => {
         merge: true
       }).catch(() => {});
     },
-    tvMode: tvMode
+    tvMode: tvMode,
+    onlineUsers: onlineUsers
   }), view === 'admin' && isAdmin && /*#__PURE__*/React.createElement(AdminView, {
     participants: participants,
     predictions: predictions,
