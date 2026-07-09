@@ -522,6 +522,9 @@ const CSS = `
     .goal-grid{grid-template-columns:80px 1fr 1fr auto;gap:4px;}
     .card{padding:12px;}
     .btn{padding:9px 14px;font-size:13px;}
+    .sidebar-right{order:-1;margin-top:0;border-top:none;border-bottom:2px solid var(--line);padding-bottom:12px;}
+    .page-grid>main{order:0;}
+    .sidebar-left{order:1;}
   }
   @media(max-width:480px){
     .hdr-title{font-size:13px;}
@@ -531,6 +534,7 @@ const CSS = `
   .sidebar-right{display:block;}@media(max-width:1300px) and (min-width:801px){.sidebar-right{display:none;}}
   @media(max-width:800px){.sidebar-right{border-top:2px solid var(--line);padding-top:16px;margin-top:4px;}}
   .mob-fanzone-label{display:none;}@media(max-width:800px){.mob-fanzone-label{display:flex;align-items:center;gap:8px;margin-bottom:12px;}}
+  .mob-vibes-tip{display:none;}@media(max-width:800px){.mob-vibes-tip{display:block;font-size:11px;color:var(--amber);background:rgba(214,137,42,.08);border:1px solid rgba(214,137,42,.25);border-radius:6px;padding:5px 10px;text-align:center;margin-bottom:10px;}}
   .match-teams{display:flex;align-items:center;justify-content:center;gap:20px;width:100%;}
   .match-team{text-align:center;flex:1;min-width:0;overflow:hidden;}
   .match-team-name{font-weight:800;font-size:18px;margin-top:8px;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -1819,7 +1823,7 @@ const RightSidebar = ({
       if (counts[e] !== undefined) counts[e]++;
     });
     const total = Object.values(counts).reduce((s, v) => s + v, 0);
-    const [open, setOpen] = React.useState(false);
+    const [open, setOpen] = React.useState(typeof window !== 'undefined' && window.innerWidth <= 800);
     const [pulse, setPulse] = React.useState(null);
     const prevTotal = React.useRef(total);
     React.useEffect(() => {
@@ -1839,7 +1843,9 @@ const RightSidebar = ({
         borderTop: '1px solid var(--line)',
         paddingTop: 12
       }
-    }, /*#__PURE__*/React.createElement("button", {
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "mob-vibes-tip"
+    }, "\uD83D\uDCAC React to the match \u2014 tap an emoji to share your vibe!"), /*#__PURE__*/React.createElement("button", {
       onClick: () => setOpen(o => !o),
       style: {
         width: '100%',
@@ -4900,12 +4906,7 @@ const LeaderboardView = ({
         color: 'var(--ink-soft)',
         marginTop: 2
       }
-    }, "Predicted: ", /*#__PURE__*/React.createElement("span", {
-      className: "mono",
-      style: {
-        fontWeight: 700
-      }
-    }, predictions[s.name].h, "\u2013", predictions[s.name].a)), submittedAt && /*#__PURE__*/React.createElement("div", {
+    }, "\u2713 Locked in"), submittedAt && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 10,
         color: 'var(--ink-soft)',
