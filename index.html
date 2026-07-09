@@ -99,6 +99,7 @@ const db = window.__db;
 const FB_ON = window.__fbConfigured;
 const NS = window.__COMP_ID || 'qft';
 const DEFAULT_ADMIN_PW = window.__ADMIN_PW || 'qftadmin2026';
+const APP_LOAD_TS = Date.now(); // set once at page load — used to detect force-reload signals
 
 // ── MATCH ────────────────────────────────────────────────────────
 const MATCH_KICKOFF = '2026-07-09T20:00:00Z'; // Thu Jul 9, 4:00 PM EDT
@@ -631,7 +632,7 @@ const SQUAD = {
   'Portugal': ['Rui Patrício', 'Diogo Costa', 'João Cancelo', 'Nélson Semedo', 'Rúben Dias', 'Pepe', 'Danilo Pereira', 'Nuno Mendes', 'Raphaël Guerreiro', 'Bernardo Silva', 'Bruno Fernandes', 'Rúben Neves', 'João Palhinha', 'Vitinha', 'João Félix', 'Rafael Leão', 'Cristiano Ronaldo', 'Gonçalo Ramos', 'Diogo Jota', 'André Silva'],
   'Netherlands': ['Remko Pasveer', 'Bart Verbruggen', 'Denzel Dumfries', 'Jurriën Timber', 'Virgil van Dijk', 'Nathan Aké', 'Daley Blind', 'Ian Maatsen', 'Frenkie de Jong', 'Tijjani Reijnders', 'Marten de Roon', 'Georginio Wijnaldum', 'Xavi Simons', 'Steven Bergwijn', 'Donyell Malen', 'Cody Gakpo', 'Memphis Depay', 'Wout Weghorst', 'Brian Brobbey'],
   'United States': ['Matt Turner', 'Ethan Horvath', 'Sergiño Dest', 'Joe Scally', 'Cameron Carter-Vickers', 'Tim Ream', 'Walker Zimmerman', 'Antonee Robinson', 'Tyler Adams', 'Weston McKennie', 'Yunus Musah', 'Brenden Aaronson', 'Christian Pulisic', 'Giovanni Reyna', 'Timothy Weah', 'Josh Sargent', 'Ricardo Pepi', 'Folarin Balogun', 'Jordan Morris', 'Reggie Cannon'],
-  'Morocco': ['Yassine Bounou', 'Munir El Mohamedi', 'Ahmed Reda Tagnaouti', 'Achraf Hakimi', 'Noussair Mazraoui', 'Nayef Aguerd', 'Jawad El Yamiq', 'Adam Masina', 'Yahya Attiat-Allah', 'Romain Saïss', 'Sofyan Amrabat', 'Azzedine Ounahi', 'Selim Amallah', 'Bilal El Khannouss', 'Hakim Ziyech', 'Abde Ezzalzouli', 'Sofiane Boufal', 'Brahim Díaz', 'Youssef En-Nesyri', 'Zakaria Aboukhlal', 'Anass Zaroury', 'Ayoub El Kaabi', 'Ilias Chair', 'Ryan Mmaee'],
+  'Morocco': ['Yassine Bounou', 'Munir El Mohamedi', 'Ahmed Reda Tagnaouti', 'Achraf Hakimi', 'Noussair Mazraoui', 'Nayef Aguerd', 'Jawad El Yamiq', 'Issa Diop', 'Redouane Halhal', 'Adam Masina', 'Yahya Attiat-Allah', 'Romain Saïss', 'Sofyan Amrabat', 'Azzedine Ounahi', 'Neil El Aynaoui', 'Ayyoub Bouaddi', 'Selim Amallah', 'Bilal El Khannouss', 'Hakim Ziyech', 'Abde Ezzalzouli', 'Sofiane Boufal', 'Brahim Díaz', 'Soufiane Rahimi', 'Youssef En-Nesyri', 'Zakaria Aboukhlal', 'Anass Zaroury', 'Ayoub El Kaabi', 'Ilias Chair', 'Ryan Mmaee'],
   'Canada': ['Milan Borjan', 'Maxime Crépeau', 'Alistair Johnston', 'Richie Laryea', 'Steven Vitória', 'Kamal Miller', 'Derek Cornelius', 'Sam Adekugbe', 'Atiba Hutchinson', 'Stephen Eustáquio', 'Mark-Anthony Kaye', 'Jonathan Osorio', 'Tajon Buchanan', 'Alphonso Davies', 'Junior Hoilett', 'Cyle Larin', 'Lucas Cavallini', 'Jonathan David', 'Théo Corbeanu', 'Liam Fraser'],
   'Uruguay': ['Fernando Muslera', 'Sergio Rochet', 'Nahitan Nández', 'José María Giménez', 'Ronald Araújo', 'Sebastián Coates', 'Mathías Olivera', 'Federico Valverde', 'Rodrigo Bentancur', 'Matías Vecino', 'Lucas Torreira', 'Giorgian De Arrascaeta', 'Facundo Pellistri', 'Darwin Núñez', 'Luis Suárez', 'Edinson Cavani', 'Facundo Torres', 'Maxi Gómez'],
   'Colombia': ['Camilo Vargas', 'Daniel Muñoz', 'Dávinson Sánchez', 'Yerry Mina', 'Johan Mojica', 'Wilmar Barrios', 'Mateus Uribe', 'Juan Cuadrado', 'James Rodríguez', 'Óscar Murillo', 'Luis Díaz', 'Rafael Santos Borré', 'Radamel Falcao', 'Jhon Durán', 'Sebastián Villa', 'Richard Ríos', 'Jefferson Lerma'],
@@ -6281,9 +6282,11 @@ const BonusPickView = ({
 // ── ONLINE PANEL ────────────────────────────────────────────────
 const OnlinePanel = ({
   onlineUsers = {},
-  currentUser
+  currentUser,
+  onForceReload = null
 }) => {
   const [tick, setTick] = React.useState(0);
+  const [reloading, setReloading] = React.useState(false);
   React.useEffect(() => {
     const t = setInterval(() => setTick(n => n + 1), 30000);
     return () => clearInterval(t);
@@ -6297,7 +6300,48 @@ const OnlinePanel = ({
   })).filter(({
     ts
   }) => ts && now - ts < 3 * 60 * 1000).sort((a, b) => b.ts - a.ts);
-  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement("div", null, onForceReload && /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
+      marginBottom: 12,
+      padding: '14px 16px',
+      borderLeft: '3px solid var(--amber)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 14,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 180
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 700,
+      fontSize: 13,
+      marginBottom: 2
+    }
+  }, "\uD83D\uDD04 Force Reload All Users"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-soft)',
+      lineHeight: 1.5
+    }
+  }, "Sends a signal to every open browser tab \u2014 all users reload instantly. Use after pushing an update.")), /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-amber",
+    disabled: reloading,
+    onClick: async () => {
+      if (!window.confirm('Force-reload ALL connected users now?')) return;
+      setReloading(true);
+      await onForceReload();
+      setTimeout(() => setReloading(false), 4000);
+    },
+    style: {
+      flexShrink: 0,
+      justifyContent: 'center'
+    }
+  }, reloading ? '📡 Signal sent!' : '📡 Force Reload All')), /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       overflow: 'hidden'
@@ -7054,7 +7098,8 @@ const AdminView = ({
   onRestoreParticipants,
   onRestorePredictions,
   onRestoreBonusPicks,
-  onRestorePins
+  onRestorePins,
+  onForceReload = null
 }) => {
   const [adminPw, setAdminPw] = useState('');
   const [authed, setAuthed] = useState(bypassAuth);
@@ -8113,7 +8158,8 @@ const AdminView = ({
     }, "\uD83D\uDDD1 Del")));
   }))), section === 'online' && /*#__PURE__*/React.createElement(OnlinePanel, {
     onlineUsers: onlineUsers,
-    currentUser: adminUser
+    currentUser: adminUser,
+    onForceReload: onForceReload
   }), section === 'goals' && /*#__PURE__*/React.createElement("div", null, liveGoals?.source && /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 12,
@@ -9282,6 +9328,14 @@ const App = () => {
     sub('config', d => {
       if (d && typeof d === 'object') setManualLock(!!d.manualLock);
     });
+    // Force-reload: admin writes a timestamp > APP_LOAD_TS → all clients reload
+    subs.push(db.collection(NS).doc('force-reload').onSnapshot(snap => {
+      if (!snap.exists) return;
+      try {
+        const ts = snap.data()?.ts || 0;
+        if (ts > APP_LOAD_TS) window.location.reload();
+      } catch {}
+    }, () => {}));
     // Team picks
     subs.push(db.collection(NS).doc('team-picks').onSnapshot(snap => {
       if (!snap.exists) return;
@@ -9623,6 +9677,13 @@ const App = () => {
     await storage.set('config', {
       manualLock: next
     });
+  };
+  const forceReloadAll = async () => {
+    if (!FB_ON) return;
+    await fbTO(db.collection(NS).doc('force-reload').set({
+      ts: Date.now(),
+      by: currentUser
+    })).catch(() => {});
   };
   const handleResetPin = async (name, newPin) => {
     const hashed = await hashPin(newPin, name);
@@ -9970,6 +10031,7 @@ const App = () => {
     onSaveLiveGoals: saveLiveGoals,
     manualLock: manualLock,
     onToggleManualLock: toggleManualLock,
+    onForceReload: forceReloadAll,
     onRestoreParticipants: parts => {
       setParticipants(parts);
     },
