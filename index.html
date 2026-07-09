@@ -715,7 +715,7 @@ const PlayerSearchInput = ({
     return () => document.removeEventListener('mousedown', fn);
   }, []);
   const players = SQUAD[team] || [];
-  const filtered = q.length < 1 ? players.slice(0, 10) : players.filter(p => p.toLowerCase().includes(q.toLowerCase())).slice(0, 10);
+  const filtered = q.length < 1 ? players : players.filter(p => p.toLowerCase().includes(q.toLowerCase())).slice(0, 12);
   const handleChange = e => {
     setQ(e.target.value);
     onChange(e.target.value);
@@ -848,7 +848,7 @@ const BothTeamsPlayerSearch = ({
     }
     return out;
   }, [home, away]);
-  const filtered = q.length < 1 ? allPlayers.slice(0, 14) : allPlayers.filter(p => p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 12);
+  const filtered = q.length < 1 ? allPlayers : allPlayers.filter(p => p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 14);
   const handleChange = e => {
     setQ(e.target.value);
     onChange(e.target.value);
