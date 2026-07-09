@@ -496,6 +496,12 @@ const CSS = `
   @keyframes flyUp{0%{transform:translateY(0) scale(1) rotate(0deg);opacity:1}30%{opacity:1}80%{opacity:.7}100%{transform:translateY(-75vh) scale(1.8) rotate(var(--fly-rot,15deg));opacity:0}}
   @keyframes flyWobble{0%,100%{transform:translateX(0)}50%{transform:translateX(var(--fly-dx,8px))}}
   @keyframes loadBar{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
+  @keyframes avatarBounce{0%,100%{transform:translateY(0) scale(1)}40%{transform:translateY(-10px) scale(1.08)}60%{transform:translateY(-6px) scale(1.04)}80%{transform:translateY(-2px) scale(1.01)}}
+  @keyframes avatarSway{0%,100%{transform:rotate(-5deg) translateX(-2px)}50%{transform:rotate(5deg) translateX(2px)}}
+  @keyframes avatarWiggle{0%,100%{transform:rotate(0deg)}20%{transform:rotate(-8deg)}40%{transform:rotate(8deg)}60%{transform:rotate(-5deg)}80%{transform:rotate(5deg)}}
+  @keyframes avatarFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  @keyframes avatarJump{0%,100%{transform:translateY(0) scaleX(1)}15%{transform:translateY(0) scaleX(1.15) scaleY(0.85)}40%{transform:translateY(-14px) scaleX(0.9) scaleY(1.1)}70%{transform:translateY(-4px) scaleX(1.05) scaleY(0.95)}85%{transform:translateY(0) scaleX(0.98) scaleY(1.02)}}
+  @keyframes reactPop{0%{transform:scale(1)}40%{transform:scale(1.8) rotate(20deg)}70%{transform:scale(0.85) rotate(-5deg)}100%{transform:scale(1) rotate(0deg)}}
   .fadein{animation:fadein .25s ease;}
   .scrollbar::-webkit-scrollbar{width:4px;height:4px;}.scrollbar::-webkit-scrollbar-track{background:transparent;}.scrollbar::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px;}
   input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}
@@ -6319,13 +6325,21 @@ const LiveDataView = ({
   result = {},
   home = 'France',
   away = 'Morocco',
-  goalToast = null
+  currentUser = null,
+  onReact = null
 }) => {
   const FRANCE_COL = '#003189';
   const MOROCCO_COL = '#C1272D';
   const [tick, setTick] = React.useState(0);
   const [goalFlash, setGoalFlash] = React.useState(null);
+  const [vibeFeed, setVibeFeed] = React.useState([]); // recent reactions [{user,emoji,ts}]
+  const [pulse, setPulse] = React.useState(null);
   const prevGoalsRef = React.useRef((liveGoals?.goals || []).length);
+  const prevReactionsRef = React.useRef({
+    ...reactions
+  });
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 800;
+
   // Pulse on new goal
   React.useEffect(() => {
     const cur = (liveGoals?.goals || []).length;
@@ -6336,19 +6350,42 @@ const LiveDataView = ({
     }
     prevGoalsRef.current = cur;
   }, [liveGoals]);
+
+  // Track new reactions → vibe feed
+  React.useEffect(() => {
+    const prev = prevReactionsRef.current;
+    const newEntries = [];
+    Object.entries(reactions).forEach(([user, emoji]) => {
+      if (emoji && prev[user] !== emoji) newEntries.push({
+        user,
+        emoji,
+        ts: Date.now(),
+        id: user + '-' + Date.now()
+      });
+    });
+    if (newEntries.length > 0) {
+      setVibeFeed(f => [...newEntries, ...f].slice(0, 20));
+      const e = newEntries[0].emoji;
+      setPulse(e);
+      setTimeout(() => setPulse(null), 600);
+    }
+    prevReactionsRef.current = {
+      ...reactions
+    };
+  }, [reactions]);
   React.useEffect(() => {
     const t = setInterval(() => setTick(n => n + 1), 5000);
     return () => clearInterval(t);
   }, []);
   void tick;
-
-  // Build team supporter lists
   const TEAM_REACTS = [{
     key: '_fr',
-    team: 'France'
+    team: 'France',
+    col: FRANCE_COL
   }, {
     key: '_ma',
-    team: 'Morocco'
+    team: 'Morocco',
+    col: MOROCCO_COL
   }];
   const EMOJIS = ['⚽', '🔥', '😱', '🤦', '💪', '🎉', '🥅', '🥺'];
   const ALL_KEYS = [...EMOJIS, ...TEAM_REACTS.map(t => t.key)];
@@ -6365,19 +6402,48 @@ const LiveDataView = ({
       }
     }, key);
   };
+  const myReaction = reactions[currentUser] || null;
   const franceFans = participants.filter(p => teamPicks[p] === 'France');
   const moroccoFans = participants.filter(p => teamPicks[p] === 'Morocco');
   const neutralFans = participants.filter(p => !teamPicks[p]);
   const hScore = result?.h != null && result.h !== '' ? result.h : (liveGoals?.goals || []).filter(g => g.isHome).length;
   const aScore = result?.a != null && result.a !== '' ? result.a : (liveGoals?.goals || []).filter(g => !g.isHome).length;
   const hasLive = liveGoals?.goals && liveGoals.goals.length > 0;
+
+  // Count reactions
+  const counts = ALL_KEYS.reduce((a, k) => {
+    a[k] = 0;
+    return a;
+  }, {});
+  Object.values(reactions).forEach(e => {
+    if (counts[e] !== undefined) counts[e]++;
+  });
+  const totalReacts = Object.values(counts).reduce((s, v) => s + v, 0);
+
+  // Deterministic animation per user — hash name to pick style + timing
+  const getAvatarAnim = name => {
+    const h = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    const anims = ['avatarBounce', 'avatarSway', 'avatarWiggle', 'avatarFloat', 'avatarJump'];
+    const anim = anims[h % anims.length];
+    const dur = (2.2 + h % 6 * 0.4).toFixed(1) + 's';
+    const delay = (h % 8 * 0.3).toFixed(1) + 's';
+    return `${anim} ${dur} ease-in-out ${delay} infinite`;
+  };
   const FanCard = ({
     name,
     col,
     size = 36
   }) => {
     const reaction = reactions[name];
-    const tr = TEAM_REACTS.find(t => t.key === reaction);
+    const [prevReact, setPrevReact] = React.useState(reaction);
+    const [reactAnim, setReactAnim] = React.useState('');
+    React.useEffect(() => {
+      if (reaction !== prevReact) {
+        setReactAnim('reactPop .5s ease');
+        setPrevReact(reaction);
+        setTimeout(() => setReactAnim(''), 550);
+      }
+    }, [reaction]);
     return /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
@@ -6393,7 +6459,8 @@ const LiveDataView = ({
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        position: 'relative'
+        position: 'relative',
+        animation: getAvatarAnim(name)
       }
     }, /*#__PURE__*/React.createElement(Avatar, {
       name: name,
@@ -6408,7 +6475,8 @@ const LiveDataView = ({
         padding: '2px 4px',
         display: 'flex',
         alignItems: 'center',
-        lineHeight: 1
+        lineHeight: 1,
+        animation: reactAnim || 'none'
       }
     }, renderReactIcon(reaction, 14))), /*#__PURE__*/React.createElement("span", {
       style: {
@@ -6432,16 +6500,8 @@ const LiveDataView = ({
   }) => {
     const goals = (liveGoals?.goals || []).filter(g => isHome ? g.isHome : !g.isHome);
     const score = isHome ? hScore : aScore;
-    const reactionCounts = ALL_KEYS.reduce((a, k) => {
-      a[k] = 0;
-      return a;
-    }, {});
-    participants.forEach(p => {
-      const r = reactions[p];
-      if (r && reactionCounts[r] !== undefined) reactionCounts[r]++;
-    });
     const teamReact = TEAM_REACTS.find(t => t.team === team);
-    const supportCount = teamReact ? reactionCounts[teamReact.key] : 0;
+    const supportCount = teamReact ? counts[teamReact.key] : 0;
     return /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1,
@@ -6499,7 +6559,7 @@ const LiveDataView = ({
         color: 'rgba(255,255,255,.7)',
         marginTop: 2
       }
-    }, fans.length, " supporter", fans.length !== 1 ? 's' : '', " \xB7 ", supportCount > 0 ? `${supportCount} 🏳️ reacts` : '')), /*#__PURE__*/React.createElement("div", {
+    }, fans.length, " supporter", fans.length !== 1 ? 's' : '', supportCount > 0 ? ` · ${supportCount} 🏳️ reacts` : '')), /*#__PURE__*/React.createElement("div", {
       style: {
         marginLeft: 'auto',
         fontSize: 72,
@@ -6641,7 +6701,465 @@ const LiveDataView = ({
       size: 28
     })))));
   };
-  return /*#__PURE__*/React.createElement("div", {
+
+  // ── MOBILE VIBE FEED ───────────────────────────────────────────
+  const MobileView = () => /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#0a0e1a',
+      minHeight: 'calc(100vh - 148px)',
+      paddingBottom: 100,
+      display: 'flex',
+      flexDirection: 'column'
+    }
+  }, goalFlash && ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      inset: 0,
+      zIndex: 10000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      pointerEvents: 'none',
+      background: 'radial-gradient(ellipse at center,rgba(255,215,0,.22) 0%,rgba(0,0,0,.75) 70%)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      animation: 'welcomeIn .4s cubic-bezier(.34,1.56,.64,1) forwards'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 60,
+      lineHeight: 1,
+      marginBottom: 6
+    }
+  }, "\u26BD"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 42,
+      fontWeight: 900,
+      color: '#FFD700',
+      textTransform: 'uppercase',
+      textShadow: '0 0 40px rgba(255,215,0,.8)'
+    }
+  }, "GOAL!"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 18,
+      fontWeight: 800,
+      color: 'white',
+      marginTop: 6
+    }
+  }, goalFlash.scorer || ''), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'rgba(255,255,255,.6)',
+      marginTop: 2
+    }
+  }, goalFlash.team, " \xB7 ", goalFlash.time), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 16,
+      display: 'flex',
+      justifyContent: 'center',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'rgba(0,49,137,.85)',
+      border: '2px solid #003189',
+      borderRadius: 10,
+      padding: '10px 22px',
+      fontSize: 26,
+      fontWeight: 900,
+      color: 'white',
+      fontFamily: 'monospace'
+    }
+  }, hScore), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 18,
+      color: 'rgba(255,255,255,.4)',
+      alignSelf: 'center'
+    }
+  }, "\u2013"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'rgba(193,39,45,.85)',
+      border: '2px solid #C1272D',
+      borderRadius: 10,
+      padding: '10px 22px',
+      fontSize: 26,
+      fontWeight: 900,
+      color: 'white',
+      fontFamily: 'monospace'
+    }
+  }, aScore)))), document.body), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: 'rgba(255,255,255,.04)',
+      borderBottom: '1px solid rgba(255,255,255,.1)',
+      padding: '10px 12px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: home,
+    size: 22
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      fontWeight: 800,
+      color: 'white'
+    }
+  }, home)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      background: 'rgba(0,0,0,.5)',
+      borderRadius: 10,
+      padding: '5px 16px',
+      border: '1px solid rgba(255,255,255,.1)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 30,
+      fontWeight: 900,
+      color: 'white',
+      fontFamily: 'monospace'
+    }
+  }, hScore), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 16,
+      color: 'rgba(255,255,255,.3)',
+      padding: '0 2px'
+    }
+  }, "\u2013"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 30,
+      fontWeight: 900,
+      color: 'white',
+      fontFamily: 'monospace'
+    }
+  }, aScore)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      fontWeight: 800,
+      color: 'white'
+    }
+  }, away), /*#__PURE__*/React.createElement(Flag, {
+    team: away,
+    size: 22
+  })), hasLive && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      background: 'rgba(255,50,50,.15)',
+      border: '1px solid rgba(255,50,50,.4)',
+      borderRadius: 20,
+      padding: '2px 8px'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: 6,
+      height: 6,
+      borderRadius: '50%',
+      background: '#ff4444',
+      display: 'inline-block',
+      animation: 'liveBlink 1.2s ease-in-out infinite'
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: '#ff7777'
+    }
+  }, "LIVE"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '10px 12px',
+      background: 'rgba(255,255,255,.03)',
+      borderBottom: '1px solid rgba(255,255,255,.07)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: 'rgba(255,255,255,.4)',
+      letterSpacing: '.08em',
+      textTransform: 'uppercase',
+      marginBottom: 8
+    }
+  }, "\u26A1 ", totalReacts, " reaction", totalReacts !== 1 ? 's' : '', " from ", participants.length, " players"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap'
+    }
+  }, ALL_KEYS.filter(k => counts[k] > 0).map(k => /*#__PURE__*/React.createElement("div", {
+    key: k,
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      background: 'rgba(255,255,255,.08)',
+      border: '1px solid rgba(255,255,255,.15)',
+      borderRadius: 20,
+      padding: '4px 10px'
+    }
+  }, renderReactIcon(k, 14), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: 'white'
+    }
+  }, counts[k]))), totalReacts === 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: 'rgba(255,255,255,.3)',
+      fontStyle: 'italic'
+    }
+  }, "No reactions yet \u2014 be first! \uD83D\uDC47"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      padding: '10px 12px',
+      overflowY: 'auto'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: 'rgba(255,255,255,.4)',
+      letterSpacing: '.08em',
+      textTransform: 'uppercase',
+      marginBottom: 10
+    }
+  }, "\uD83D\uDCAC Live Vibe Feed"), vibeFeed.length === 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      padding: '32px 0',
+      color: 'rgba(255,255,255,.25)',
+      fontSize: 13,
+      fontStyle: 'italic'
+    }
+  }, "Reactions will appear here in real time\u2026"), vibeFeed.map(({
+    user,
+    emoji,
+    id
+  }) => {
+    const tp = teamPicks[user];
+    const tc = tp === 'France' ? FRANCE_COL : tp === 'Morocco' ? MOROCCO_COL : null;
+    return /*#__PURE__*/React.createElement("div", {
+      key: id,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '8px 10px',
+        borderRadius: 10,
+        background: 'rgba(255,255,255,.06)',
+        border: '1px solid rgba(255,255,255,.08)',
+        marginBottom: 6,
+        animation: 'fadein .3s ease'
+      }
+    }, /*#__PURE__*/React.createElement(Avatar, {
+      name: user,
+      size: 32
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 12,
+        fontWeight: 700,
+        color: tc || 'white'
+      }
+    }, user), tp && /*#__PURE__*/React.createElement("span", {
+      style: {
+        marginLeft: 6,
+        display: 'inline-flex',
+        alignItems: 'center'
+      }
+    }, /*#__PURE__*/React.createElement(Flag, {
+      team: tp,
+      size: 11
+    }))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 26,
+        lineHeight: 1
+      }
+    }, renderReactIcon(emoji, 22)));
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 16,
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 10
+    }
+  }, [{
+    team: home,
+    fans: franceFans,
+    col: FRANCE_COL
+  }, {
+    team: away,
+    fans: moroccoFans,
+    col: MOROCCO_COL
+  }].map(({
+    team,
+    fans,
+    col
+  }) => /*#__PURE__*/React.createElement("div", {
+    key: team,
+    style: {
+      background: `${col}33`,
+      border: `1px solid ${col}66`,
+      borderRadius: 10,
+      padding: '10px 8px'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 8
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: team,
+    size: 18
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: 'white'
+    }
+  }, team), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'rgba(255,255,255,.5)',
+      marginLeft: 'auto'
+    }
+  }, fans.length)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 4
+    }
+  }, fans.map(n => {
+    const r = reactions[n];
+    return /*#__PURE__*/React.createElement("div", {
+      key: n,
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 3,
+        background: 'rgba(255,255,255,.1)',
+        borderRadius: 20,
+        padding: '2px 6px 2px 2px'
+      }
+    }, /*#__PURE__*/React.createElement(Avatar, {
+      name: n,
+      size: 18
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 700,
+        color: 'white'
+      }
+    }, n.split(' ')[0]), r && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11
+      }
+    }, renderReactIcon(r, 11)));
+  }), fans.length === 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'rgba(255,255,255,.3)',
+      fontStyle: 'italic'
+    }
+  }, "No supporters yet")))))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 200,
+      background: 'linear-gradient(180deg,rgba(10,14,26,0) 0%,rgba(10,14,26,.98) 20%)',
+      paddingTop: 12,
+      paddingBottom: 'env(safe-area-inset-bottom,8px)'
+    }
+  }, currentUser ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '8px 12px 10px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: 'rgba(255,255,255,.5)',
+      textAlign: 'center',
+      letterSpacing: '.08em',
+      textTransform: 'uppercase'
+    }
+  }, myReaction ? `Your vibe: ` : 'Tap to react 👇', myReaction && renderReactIcon(myReaction, 14)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'center',
+      gap: 6,
+      flexWrap: 'wrap'
+    }
+  }, ALL_KEYS.map(e => {
+    const isMe = myReaction === e;
+    const tr = TEAM_REACTS.find(t => t.key === e);
+    return /*#__PURE__*/React.createElement("button", {
+      key: e,
+      onClick: () => onReact && onReact(isMe ? '' : e),
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 2,
+        padding: '8px 10px',
+        borderRadius: 12,
+        minWidth: 46,
+        border: isMe ? `2px solid ${tr ? tr.col : '#FFD700'}` : '2px solid rgba(255,255,255,.15)',
+        background: isMe ? tr ? tr.col + '33' : 'rgba(255,215,0,.18)' : 'rgba(255,255,255,.08)',
+        cursor: 'pointer',
+        transform: pulse === e ? 'scale(1.25)' : 'scale(1)',
+        transition: 'transform .18s,border .15s,background .15s',
+        WebkitTapHighlightColor: 'transparent'
+      }
+    }, renderReactIcon(e, 20), counts[e] > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9,
+        fontWeight: 700,
+        color: isMe ? '#FFD700' : 'rgba(255,255,255,.5)',
+        fontFamily: 'monospace'
+      }
+    }, counts[e]));
+  }))) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '12px',
+      textAlign: 'center',
+      color: 'rgba(255,255,255,.4)',
+      fontSize: 12
+    }
+  }, "Log in to react \uD83D\uDC46")));
+
+  // Desktop stays as full split-screen
+  const DesktopView = () => /*#__PURE__*/React.createElement("div", {
     style: {
       minHeight: 'calc(100vh - 148px)',
       background: '#0a0e1a',
@@ -6684,10 +7202,9 @@ const LiveDataView = ({
       fontSize: 24,
       fontWeight: 800,
       color: 'white',
-      marginTop: 8,
-      textShadow: '0 2px 8px rgba(0,0,0,.6)'
+      marginTop: 8
     }
-  }, goalFlash.scorer || '', "  ", /*#__PURE__*/React.createElement("span", {
+  }, goalFlash.scorer || '', " ", /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'rgba(255,255,255,.6)',
       fontSize: 18
@@ -6776,7 +7293,6 @@ const LiveDataView = ({
     style: {
       fontSize: 20,
       color: 'rgba(255,255,255,.35)',
-      fontWeight: 400,
       padding: '0 4px'
     }
   }, "\u2013"), /*#__PURE__*/React.createElement("span", {
@@ -6853,6 +7369,344 @@ const LiveDataView = ({
     squad: SQUAD[away] || [],
     isHome: false
   })));
+  return isMobile ? /*#__PURE__*/React.createElement(MobileView, null) : /*#__PURE__*/React.createElement(DesktopView, null);
+};
+const FRANCE_COL = '#003189';
+const MOROCCO_COL = '#C1272D';
+const [tick, setTick] = React.useState(0);
+const [goalFlash, setGoalFlash] = React.useState(null);
+const prevGoalsRef = React.useRef((liveGoals?.goals || []).length);
+// Pulse on new goal
+React.useEffect(() => {
+  const cur = (liveGoals?.goals || []).length;
+  if (cur > prevGoalsRef.current) {
+    const g = (liveGoals.goals || [])[cur - 1];
+    setGoalFlash(g);
+    setTimeout(() => setGoalFlash(null), 6000);
+  }
+  prevGoalsRef.current = cur;
+}, [liveGoals]);
+React.useEffect(() => {
+  const t = setInterval(() => setTick(n => n + 1), 5000);
+  return () => clearInterval(t);
+}, []);
+void tick;
+
+// Build team supporter lists
+const TEAM_REACTS = [{
+  key: '_fr',
+  team: 'France'
+}, {
+  key: '_ma',
+  team: 'Morocco'
+}];
+const EMOJIS = ['⚽', '🔥', '😱', '🤦', '💪', '🎉', '🥅', '🥺'];
+const ALL_KEYS = [...EMOJIS, ...TEAM_REACTS.map(t => t.key)];
+const renderReactIcon = (key, size = 20) => {
+  const tr = TEAM_REACTS.find(t => t.key === key);
+  if (tr) return /*#__PURE__*/React.createElement(Flag, {
+    team: tr.team,
+    size: size + 6
+  });
+  return /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: size,
+      lineHeight: 1
+    }
+  }, key);
+};
+const franceFans = participants.filter(p => teamPicks[p] === 'France');
+const moroccoFans = participants.filter(p => teamPicks[p] === 'Morocco');
+const neutralFans = participants.filter(p => !teamPicks[p]);
+const hScore = result?.h != null && result.h !== '' ? result.h : (liveGoals?.goals || []).filter(g => g.isHome).length;
+const aScore = result?.a != null && result.a !== '' ? result.a : (liveGoals?.goals || []).filter(g => !g.isHome).length;
+const hasLive = liveGoals?.goals && liveGoals.goals.length > 0;
+
+// Deterministic animation per user
+const getAvatarAnim = name => {
+  const h = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const anims = ['avatarBounce', 'avatarSway', 'avatarWiggle', 'avatarFloat', 'avatarJump'];
+  return `${anims[h % anims.length]} ${(2.2 + h % 6 * 0.4).toFixed(1)}s ease-in-out ${(h % 8 * 0.3).toFixed(1)}s infinite`;
+};
+const FanCard = ({
+  name,
+  col,
+  size = 36
+}) => {
+  const reaction = reactions[name];
+  const [prevReact, setPrevReact] = React.useState(reaction);
+  const [reactAnim, setReactAnim] = React.useState('');
+  React.useEffect(() => {
+    if (reaction !== prevReact) {
+      setReactAnim('reactPop .5s ease');
+      setPrevReact(reaction);
+      setTimeout(() => setReactAnim(''), 550);
+    }
+  }, [reaction]);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 4,
+      padding: '8px 6px',
+      borderRadius: 12,
+      background: 'rgba(255,255,255,.1)',
+      border: '1px solid rgba(255,255,255,.15)',
+      minWidth: 64,
+      flex: '0 0 auto'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'relative',
+      animation: getAvatarAnim(name)
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    name: name,
+    size: size
+  }), reaction && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      bottom: -4,
+      right: -4,
+      background: 'rgba(0,0,0,.55)',
+      borderRadius: 999,
+      padding: '2px 4px',
+      display: 'flex',
+      alignItems: 'center',
+      lineHeight: 1,
+      animation: reactAnim || 'none'
+    }
+  }, renderReactIcon(reaction, 14))), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: 'white',
+      textAlign: 'center',
+      maxWidth: 64,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, name));
+};
+const TeamZone = ({
+  team,
+  col,
+  fans,
+  squad,
+  isHome
+}) => {
+  const goals = (liveGoals?.goals || []).filter(g => isHome ? g.isHome : !g.isHome);
+  const score = isHome ? hScore : aScore;
+  const reactionCounts = ALL_KEYS.reduce((a, k) => {
+    a[k] = 0;
+    return a;
+  }, {});
+  participants.forEach(p => {
+    const r = reactions[p];
+    if (r && reactionCounts[r] !== undefined) reactionCounts[r]++;
+  });
+  const teamReact = TEAM_REACTS.find(t => t.team === team);
+  const supportCount = teamReact ? reactionCounts[teamReact.key] : 0;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      background: `linear-gradient(160deg,${col}ee 0%,${col}99 60%,${col}44 100%)`,
+      padding: '20px 16px',
+      position: 'relative',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      top: -60,
+      right: -60,
+      width: 200,
+      height: 200,
+      borderRadius: '50%',
+      background: 'rgba(255,255,255,.04)',
+      pointerEvents: 'none'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'absolute',
+      bottom: -80,
+      left: -40,
+      width: 240,
+      height: 240,
+      borderRadius: '50%',
+      background: 'rgba(255,255,255,.03)',
+      pointerEvents: 'none'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement(Flag, {
+    team: team,
+    size: 52
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 22,
+      fontWeight: 900,
+      color: 'white',
+      letterSpacing: '-.02em',
+      lineHeight: 1
+    }
+  }, team), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'rgba(255,255,255,.7)',
+      marginTop: 2
+    }
+  }, fans.length, " supporter", fans.length !== 1 ? 's' : '', " \xB7 ", supportCount > 0 ? `${supportCount} 🏳️ reacts` : '')), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginLeft: 'auto',
+      fontSize: 72,
+      fontWeight: 900,
+      color: 'white',
+      lineHeight: 1,
+      textShadow: `0 4px 24px rgba(0,0,0,.4)`,
+      fontFamily: 'JetBrains Mono,monospace'
+    }
+  }, score)), goals.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 14,
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 6
+    }
+  }, goals.map((g, i) => /*#__PURE__*/React.createElement("div", {
+    key: i,
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 5,
+      background: 'rgba(255,255,255,.15)',
+      border: '1px solid rgba(255,255,255,.25)',
+      borderRadius: 20,
+      padding: '4px 10px'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13
+    }
+  }, "\u26BD"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: 'white'
+    }
+  }, g.scorer || 'Goal'), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'rgba(255,255,255,.7)'
+    }
+  }, g.time)))), fans.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: '.1em',
+      color: 'rgba(255,255,255,.6)',
+      textTransform: 'uppercase',
+      marginBottom: 8
+    }
+  }, "\uD83C\uDFF3\uFE0F Supporters"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 8
+    }
+  }, fans.map(n => /*#__PURE__*/React.createElement(FanCard, {
+    key: n,
+    name: n,
+    col: col
+  })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: '.1em',
+      color: 'rgba(255,255,255,.6)',
+      textTransform: 'uppercase',
+      marginBottom: 8
+    }
+  }, "\uD83D\uDCCB Squad"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))',
+      gap: 4
+    }
+  }, (squad || []).map((p, i) => /*#__PURE__*/React.createElement("div", {
+    key: p,
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '4px 8px',
+      borderRadius: 6,
+      background: 'rgba(255,255,255,.08)',
+      border: '1px solid rgba(255,255,255,.1)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 9,
+      fontWeight: 700,
+      color: 'rgba(255,255,255,.4)',
+      minWidth: 16,
+      textAlign: 'right',
+      fontFamily: 'monospace'
+    }
+  }, i + 1), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'white',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, p))))), neutralFans.length > 0 && isHome && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 14,
+      paddingTop: 12,
+      borderTop: '1px solid rgba(255,255,255,.15)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      letterSpacing: '.1em',
+      color: 'rgba(255,255,255,.5)',
+      textTransform: 'uppercase',
+      marginBottom: 6
+    }
+  }, "\u2696\uFE0F Undecided"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 6
+    }
+  }, neutralFans.map(n => /*#__PURE__*/React.createElement(FanCard, {
+    key: n,
+    name: n,
+    col: "#888",
+    size: 28
+  })))));
 };
 
 // ── ONLINE PANEL ────────────────────────────────────────────────
@@ -10594,7 +11448,15 @@ const App = () => {
     result: result,
     home: home,
     away: away,
-    goalToast: goalToast
+    currentUser: currentUser,
+    onReact: emoji => {
+      if (!currentUser || !FB_ON) return;
+      db.collection(NS).doc('reactions').set({
+        [currentUser]: emoji
+      }, {
+        merge: true
+      }).catch(() => {});
+    }
   }), view === 'admin' && isAdmin && /*#__PURE__*/React.createElement(AdminView, {
     participants: participants,
     predictions: predictions,
