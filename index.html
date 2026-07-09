@@ -11311,7 +11311,7 @@ const App = () => {
     },
     tvMode: tvMode,
     onlineUsers: onlineUsers
-  }), tvMode && view === 'livedata' && isAdmin && /*#__PURE__*/React.createElement("div", {
+  }), tvMode && isAdmin && ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
       bottom: 24,
@@ -11326,19 +11326,19 @@ const App = () => {
       display: 'flex',
       alignItems: 'center',
       gap: 8,
-      padding: '10px 18px',
-      borderRadius: 12,
-      border: '2px solid rgba(255,255,255,.3)',
-      background: tvScreen === 'leaderboard' ? 'rgba(255,215,0,.2)' : 'rgba(255,255,255,.1)',
+      padding: '14px 24px',
+      borderRadius: 14,
+      border: `2px solid ${tvScreen === 'leaderboard' ? '#FFD700' : 'rgba(255,255,255,.4)'}`,
+      background: tvScreen === 'leaderboard' ? 'rgba(255,215,0,.25)' : 'rgba(30,30,50,.85)',
       color: 'white',
-      fontSize: 14,
-      fontWeight: 700,
+      fontSize: 16,
+      fontWeight: 800,
       cursor: 'pointer',
-      backdropFilter: 'blur(8px)',
-      boxShadow: '0 4px 20px rgba(0,0,0,.5)',
-      transition: 'background .2s'
+      backdropFilter: 'blur(10px)',
+      boxShadow: '0 4px 24px rgba(0,0,0,.6)',
+      letterSpacing: '.01em'
     }
-  }, tvScreen === 'leaderboard' ? '📺 Back to Live Data' : '🏆 Show Leaderboard')), tvMode && view === 'livedata' && tvScreen === 'leaderboard' && /*#__PURE__*/React.createElement("div", {
+  }, tvScreen === 'leaderboard' ? '📺 Back to Live Data' : '🏆 Show Leaderboard')), document.body), tvMode && tvScreen === 'leaderboard' && ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
       inset: 0,
@@ -11357,7 +11357,7 @@ const App = () => {
     home: home,
     away: away,
     liveGoals: liveGoals
-  })), view === 'admin' && isAdmin && /*#__PURE__*/React.createElement(AdminView, {
+  })), document.body), view === 'admin' && isAdmin && /*#__PURE__*/React.createElement(AdminView, {
     participants: participants,
     predictions: predictions,
     result: result,
