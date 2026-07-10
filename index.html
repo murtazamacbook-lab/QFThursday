@@ -4850,12 +4850,7 @@ const LeaderboardView = ({
         hasPred: !!(predictions[name] && predictions[name].h != null && predictions[name].h !== ''),
         savedAt: predictions[name]?.savedAt || null
       };
-    }).sort((a, b) => b.total - a.total || (a.savedAt && b.savedAt ? a.savedAt - b.savedAt : a.savedAt ? -1 : b.savedAt ? 1 : 0) || a.name.localeCompare(b.name))
-    // Standard competition ranking — equal totals share the same rank (1,2,2,4 not 1,2,3,4)
-    .map((s, i, arr) => ({
-      ...s,
-      rank: i > 0 && arr[i - 1].total === s.total ? arr[i - 1].rank : i + 1
-    }));
+    }).sort((a, b) => b.total - a.total || (a.savedAt && b.savedAt ? a.savedAt - b.savedAt : a.savedAt ? -1 : b.savedAt ? 1 : 0) || a.name.localeCompare(b.name));
   }, [participants, predictions, result, bonusPicks, bonusAnswers, home, away, liveGoals]);
   const maxScore = Math.max(...scores.map(s => s.total), 1);
   const withPreds = scores.filter(s => s.hasPred).length;
@@ -5055,7 +5050,7 @@ const LeaderboardView = ({
       className: "card fadein",
       style: {
         padding: '14px 18px',
-        borderLeft: s.rank === 1 ? '3px solid var(--amber)' : s.rank === 2 ? '3px solid #9b9087' : s.rank === 3 ? '3px solid #8b6e4e' : '3px solid transparent'
+        borderLeft: i === 0 ? '3px solid var(--amber)' : i === 1 ? '3px solid #9b9087' : i === 2 ? '3px solid #8b6e4e' : '3px solid transparent'
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -5069,13 +5064,13 @@ const LeaderboardView = ({
         minWidth: 28,
         textAlign: 'center'
       }
-    }, ['🥇', '🥈', '🥉'][s.rank - 1] || /*#__PURE__*/React.createElement("span", {
+    }, ['🥇', '🥈', '🥉'][i] || /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 14,
         color: 'var(--ink-soft)',
         fontWeight: 600
       }
-    }, s.rank)), /*#__PURE__*/React.createElement(Avatar, {
+    }, i + 1)), /*#__PURE__*/React.createElement(Avatar, {
       name: s.name,
       size: 36
     }), /*#__PURE__*/React.createElement("div", {
